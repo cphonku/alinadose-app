@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { Image, StyleSheet, Text, View } from 'react-native';
+import { cycleContextFrom } from '../domain/dailyRecords';
 import { getDoseForDate } from '../domain/dosing';
 import { useApp } from '../state/AppContext';
 import { Avatar, Caption, Card, Eyebrow, Screen, type IconName } from '../ui/components';
@@ -49,7 +50,7 @@ export default function Home() {
   const todayRecord = records[records.length - 1];
   const cycle = todayRecord?.date === today ? todayRecord.cycle : null;
   const loggedToday = todayRecord?.date === today && todayRecord.symptoms !== null;
-  const dose = getDoseForDate(today, data.dosingPlan, data.periodStarts, data.profile.typicalCycleLength);
+  const dose = getDoseForDate(today, data.dosingPlan, cycleContextFrom(data));
   const firstName = data.profile.displayName.split(' ')[0];
 
   const doseText =
@@ -83,6 +84,17 @@ export default function Home() {
             </Text>
           )}
         </View>
+      )}
+
+      {data.pendingPlan && (
+        <Card onPress={() => router.push('/plan-review')} accessibilityLabel="Review your new dosing plan" style={styles.banner}>
+          <Ionicons name="mail-unread-outline" size={24} color={colors.surface} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerTitle}>New dosing plan from {data.pendingPlan.prescribedBy ?? 'your physician'}</Text>
+            <Caption style={{ color: colors.surface }}>Review and confirm</Caption>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.surface} />
+        </Card>
       )}
 
       <View style={styles.cards}>
@@ -140,6 +152,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cards: { gap: spacing.md - 2, marginTop: spacing.xl },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    backgroundColor: colors.coral,
+    borderColor: colors.coral,
+  },
+  bannerTitle: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.surface },
   homeCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 88 },
   iconBubble: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   cardTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.ink, marginBottom: 2 },

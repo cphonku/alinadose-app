@@ -1,3 +1,4 @@
+import type { CycleAdjustmentInput } from './cycle';
 import type { IsoDate } from './dates';
 import type { Answers, QuestionnaireScore } from './scoring';
 
@@ -22,17 +23,24 @@ export interface PatientProfile extends RecordMeta {
   birthYear?: number;
   /** Patient-reported typical cycle length, used until real cycles are logged. */
   typicalCycleLength: number;
+  /** Usual number of bleeding days (default 5). */
+  typicalPeriodLength?: number;
   medicationName?: string;
   /** Unit used for all doses, e.g. "mg". */
   doseUnit: string;
   preferredSampleType: SampleType;
   /** First day of the monitoring phase. */
   monitoringStartDate: IsoDate;
+  /** Code the patient gives their physician so the physician can send a plan (e.g. "LUT-4F7K2"). */
+  shareCode?: string;
 }
 
 export interface PeriodStart extends RecordMeta {
   date: IsoDate;
 }
+
+/** The patient's corrections for one cycle (expected length, bleeding days). */
+export interface CycleAdjustment extends RecordMeta, CycleAdjustmentInput {}
 
 export interface HormoneReading extends RecordMeta {
   date: IsoDate;
@@ -72,24 +80,55 @@ export interface DosingPlanDay {
 }
 
 /**
+ * How a plan written for one cycle length is applied to a cycle of another length.
+ * - phaseAnchored: bleeding days and follicular days stretch/shrink; the
+ *   luteal days (~14) stay anchored to the expected next period.
+ * - fixedDays: cycle day N always uses plan day N.
+ */
+export type PlanAdaptation = 'phaseAnchored' | 'fixedDays';
+
+export type PlanStatus = 'pending' | 'active' | 'archived';
+
+/**
  * A dosing plan written by the physician after the monitoring phase.
- * The app only *displays* these doses — it never calculates or adjusts them.
+ * The app only *displays* these doses — it never calculates or changes them;
+ * it only maps the physician's plan days onto the patient's actual cycle days
+ * using the rule the physician chose (`adaptation`).
  */
 export interface DosingPlan extends RecordMeta {
   medicationName: string;
   unit: string;
-  /** One entry per cycle day, starting at day 1. */
+  /** One entry per plan day, starting at day 1. The plan length is `days.length`. */
   days: DosingPlanDay[];
+  /** Bleeding days the plan was written for. */
+  periodLength: number;
+  adaptation: PlanAdaptation;
   /**
-   * Dose the physician specifies for cycle days not covered by `days`
-   * (cycles longer than the plan). Null = the app tells the patient to
-   * contact the physician instead of showing a dose.
+   * Dose for days after the expected end of the cycle (late period).
+   * Null = the app tells the patient to contact the physician instead.
    */
   doseBeyondPlan: number | null;
   prescribedBy?: string;
   validFrom: IsoDate;
-  /** Only one plan is active at a time; older plans are kept for history. */
-  active: boolean;
+  /**
+   * pending: received from the physician, not yet confirmed by the patient.
+   * active: the plan in use (at most one). archived: kept for history.
+   */
+  status: PlanStatus;
+  /** 'physician' = received remotely; 'local' = entered on this device. */
+  source: 'local' | 'physician';
+  /** Version number and publish time on the plan server, for remote plans. */
+  remoteVersion?: number;
+  remotePublishedAt?: string;
+  /** ISO timestamps. */
+  receivedAt?: string;
+  acceptedAt?: string;
   /** True for synthetic demo plans. */
   isDemo?: boolean;
 }
+
+/** The part of a plan a physician writes (no storage or lifecycle fields). */
+export type DosingPlanDraft = Pick<
+  DosingPlan,
+  'medicationName' | 'unit' | 'days' | 'periodLength' | 'adaptation' | 'doseBeyondPlan' | 'prescribedBy'
+>;

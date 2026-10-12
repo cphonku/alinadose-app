@@ -1,7 +1,7 @@
 import type { RecordMeta } from '../domain/models';
 
 /** Current version of the stored record shapes in src/domain/models.ts. */
-export const RECORD_SCHEMA_VERSION = 1;
+export const RECORD_SCHEMA_VERSION = 2;
 
 /** Random RFC 4122 v4-style id. Uniqueness on one device is all we need. */
 export function newId(random: () => number = Math.random): string {
@@ -18,4 +18,12 @@ export function newMeta(now: Date = new Date(), random?: () => number): RecordMe
 
 export function touch<T extends RecordMeta>(record: T, now: Date = new Date()): T {
   return { ...record, updatedAt: now.toISOString() };
+}
+
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I
+
+/** Short code the patient reads out to their physician, e.g. "LUT-4F7K2". */
+export function newShareCode(random: () => number = Math.random): string {
+  const chars = Array.from({ length: 5 }, () => CODE_ALPHABET[Math.floor(random() * CODE_ALPHABET.length)]);
+  return `LUT-${chars.join('')}`;
 }

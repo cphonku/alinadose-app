@@ -7,6 +7,7 @@ export const COLLECTIONS = [
   'questionnaires',
   'medicationLogs',
   'dosingPlans',
+  'cycleAdjustments',
 ] as const;
 
 export type Collection = (typeof COLLECTIONS)[number];

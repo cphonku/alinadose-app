@@ -2,36 +2,40 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { COLLECTIONS, type Collection, type DocumentStore, type StoredRecord } from './DocumentStore';
 
 /** Bump when the table layout changes and add a migration step below. */
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 /**
  * One table per collection. The record itself is stored as JSON in `data`;
  * `date` and timestamps are duplicated into columns for indexing and so the
  * data can be exported or inspected without parsing every row.
  */
+function createTableSql(c: Collection): string {
+  return `
+    CREATE TABLE IF NOT EXISTS ${c} (
+      id TEXT PRIMARY KEY NOT NULL,
+      date TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      schema_version INTEGER NOT NULL,
+      data TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_${c}_date ON ${c}(date);`;
+}
+
 export async function migrate(db: SQLiteDatabase): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let version = row?.user_version ?? 0;
   if (version >= DATABASE_VERSION) return;
 
   if (version === 0) {
-    const tables = COLLECTIONS.map(
-      (c) => `
-      CREATE TABLE IF NOT EXISTS ${c} (
-        id TEXT PRIMARY KEY NOT NULL,
-        date TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        schema_version INTEGER NOT NULL,
-        data TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_${c}_date ON ${c}(date);`,
-    ).join('\n');
-    await db.execAsync(`PRAGMA journal_mode = WAL;\n${tables}`);
+    const v1: Collection[] = ['profile', 'periodStarts', 'hormoneReadings', 'questionnaires', 'medicationLogs', 'dosingPlans'];
+    await db.execAsync(['PRAGMA journal_mode = WAL;', ...v1.map(createTableSql)].join('\n'));
     version = 1;
   }
-  // Future migrations: if (version === 1) { ...; version = 2; }
-
+  if (version === 1) {
+    await db.execAsync(createTableSql('cycleAdjustments'));
+    version = 2;
+  }
   await db.execAsync(`PRAGMA user_version = ${version}`);
 }
 

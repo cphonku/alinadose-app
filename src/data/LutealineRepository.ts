@@ -3,7 +3,9 @@ import type { PatientData } from '../domain/dailyRecords';
 import { isIsoDate, type IsoDate } from '../domain/dates';
 import { validateDosingPlan } from '../domain/dosing';
 import type {
+  CycleAdjustment,
   DosingPlan,
+  DosingPlanDraft,
   HormoneReading,
   MedicationLog,
   PatientProfile,
@@ -13,6 +15,7 @@ import type {
 } from '../domain/models';
 import { pruneHiddenAnswers, scoreQuestionnaire, type Answers } from '../domain/scoring';
 import type { BiosensorResult } from '../services/biosensor/BiosensorService';
+import type { RemotePlan } from '../services/plans/RemotePlanService';
 import type { DocumentStore } from './DocumentStore';
 import { newMeta, touch } from './ids';
 
@@ -20,6 +23,26 @@ type Input<T extends RecordMeta> = Omit<T, keyof RecordMeta>;
 
 function assertDate(date: IsoDate) {
   if (!isIsoDate(date)) throw new Error(`Invalid date: ${date}`);
+}
+
+function assertRange(value: number | undefined, min: number, max: number, label: string) {
+  if (value !== undefined && !(Number.isInteger(value) && value >= min && value <= max)) {
+    throw new Error(`${label} must be between ${min} and ${max} days`);
+  }
+}
+
+/** Brings plans stored by older app versions (schema v1) up to the current shape. */
+export function normalizePlan(raw: DosingPlan & { active?: boolean }): DosingPlan {
+  if (raw.status) return raw;
+  const { active, ...rest } = raw;
+  return {
+    ...rest,
+    status: active ? 'active' : 'archived',
+    source: rest.source ?? 'local',
+    periodLength: rest.periodLength ?? 5,
+    // v1 plans were applied day-by-day; keep that behaviour.
+    adaptation: rest.adaptation ?? 'fixedDays',
+  };
 }
 
 /**
@@ -44,12 +67,21 @@ export class LutealineRepository {
     if (!(input.typicalCycleLength >= 15 && input.typicalCycleLength <= 60)) {
       throw new Error('Typical cycle length must be between 15 and 60 days');
     }
+    assertRange(input.typicalPeriodLength, 1, 14, 'Period length');
     const existing = await this.getProfile();
     const profile: PatientProfile = existing
       ? { ...touch(existing, this.clock()), ...input }
       : { ...newMeta(this.clock()), ...input };
     await this.store.put('profile', profile);
     return profile;
+  }
+
+  /** Changes some profile fields; the profile must exist. */
+  async updateProfile(changes: Partial<Input<PatientProfile>>): Promise<PatientProfile> {
+    const existing = await this.getProfile();
+    if (!existing) throw new Error('No profile');
+    const { id, createdAt, updatedAt, schemaVersion, ...current } = existing;
+    return this.saveProfile({ ...current, ...changes });
   }
 
   // --- Cycle -----------------------------------------------------------
@@ -70,6 +102,26 @@ export class LutealineRepository {
   async removePeriodStart(date: IsoDate): Promise<void> {
     const rows = await this.store.all<PeriodStart>('periodStarts');
     for (const r of rows.filter((r) => r.date === date)) await this.store.delete('periodStarts', r.id);
+  }
+
+  async listCycleAdjustments(): Promise<CycleAdjustment[]> {
+    return this.store.all<CycleAdjustment>('cycleAdjustments');
+  }
+
+  /** The patient's correction for one cycle: expected length and/or bleeding days. */
+  async saveCycleAdjustment(
+    cycleStart: IsoDate,
+    changes: { expectedLength?: number; periodLength?: number },
+  ): Promise<CycleAdjustment> {
+    assertDate(cycleStart);
+    assertRange(changes.expectedLength, 15, 60, 'Cycle length');
+    assertRange(changes.periodLength, 1, 14, 'Period length');
+    const existing = (await this.listCycleAdjustments()).find((a) => a.cycleStart === cycleStart);
+    const adjustment: CycleAdjustment = existing
+      ? { ...touch(existing, this.clock()), ...changes }
+      : { ...newMeta(this.clock()), cycleStart, ...changes };
+    await this.store.put('cycleAdjustments', adjustment);
+    return adjustment;
   }
 
   // --- Biosensor readings ---------------------------------------------
@@ -131,30 +183,80 @@ export class LutealineRepository {
 
   // --- Dosing plan -----------------------------------------------------
 
-  async getActiveDosingPlan(): Promise<DosingPlan | null> {
-    const plans = await this.store.all<DosingPlan>('dosingPlans');
-    return plans.find((p) => p.active) ?? null;
-  }
-
   async listDosingPlans(): Promise<DosingPlan[]> {
-    return this.store.all<DosingPlan>('dosingPlans');
+    return (await this.store.all<DosingPlan>('dosingPlans')).map(normalizePlan);
   }
 
-  /** Stores a physician's plan and makes it the active one. Older plans are kept, inactive. */
-  async saveDosingPlan(input: Omit<Input<DosingPlan>, 'active'>): Promise<DosingPlan> {
+  async getActiveDosingPlan(): Promise<DosingPlan | null> {
+    return (await this.listDosingPlans()).find((p) => p.status === 'active') ?? null;
+  }
+
+  /** A plan from the physician the patient has not confirmed yet. */
+  async getPendingPlan(): Promise<DosingPlan | null> {
+    return (await this.listDosingPlans()).find((p) => p.status === 'pending') ?? null;
+  }
+
+  private async archive(status: DosingPlan['status'], now: Date): Promise<void> {
+    for (const p of (await this.listDosingPlans()).filter((p) => p.status === status)) {
+      await this.store.put('dosingPlans', { ...touch(p, now), status: 'archived' });
+    }
+  }
+
+  /** Stores a plan entered on this device and makes it the active one. Older plans are archived. */
+  async saveDosingPlan(input: DosingPlanDraft & { validFrom: IsoDate; isDemo?: boolean }): Promise<DosingPlan> {
     assertDate(input.validFrom);
     validateDosingPlan(input);
     const now = this.clock();
-    const previous = await this.store.all<DosingPlan>('dosingPlans');
-    for (const p of previous.filter((p) => p.active)) {
-      await this.store.put('dosingPlans', { ...touch(p, now), active: false });
-    }
+    await this.archive('active', now);
     const plan: DosingPlan = {
       ...newMeta(now),
       ...input,
       days: [...input.days].sort((a, b) => a.cycleDay - b.cycleDay),
-      active: true,
+      status: 'active',
+      source: 'local',
     };
+    await this.store.put('dosingPlans', plan);
+    return plan;
+  }
+
+  /**
+   * Stores a plan published by the physician as *pending*. Returns null when
+   * this plan (or a newer one) was already received. Plans are compared by
+   * publish time, so a restarted server that counts versions from 1 again
+   * still gets through.
+   */
+  async receiveRemotePlan(remote: RemotePlan): Promise<DosingPlan | null> {
+    validateDosingPlan(remote);
+    const latest = (await this.listDosingPlans())
+      .map((p) => p.remotePublishedAt ?? '')
+      .reduce((a, b) => (b > a ? b : a), '');
+    if (remote.publishedAt <= latest) return null;
+    const now = this.clock();
+    await this.archive('pending', now); // superseded by the newer version
+    const { patientCode, version, publishedAt, ...draft } = remote;
+    const plan: DosingPlan = {
+      ...newMeta(now),
+      ...draft,
+      days: [...draft.days].sort((a, b) => a.cycleDay - b.cycleDay),
+      validFrom: publishedAt.slice(0, 10),
+      status: 'pending',
+      source: 'physician',
+      remoteVersion: version,
+      remotePublishedAt: publishedAt,
+      receivedAt: now.toISOString(),
+    };
+    await this.store.put('dosingPlans', plan);
+    return plan;
+  }
+
+  /** The patient confirms the pending plan: it becomes active from `today`. */
+  async acceptPendingPlan(today: IsoDate): Promise<DosingPlan> {
+    assertDate(today);
+    const pending = await this.getPendingPlan();
+    if (!pending) throw new Error('No pending plan');
+    const now = this.clock();
+    await this.archive('active', now);
+    const plan: DosingPlan = { ...touch(pending, now), status: 'active', validFrom: today, acceptedAt: now.toISOString() };
     await this.store.put('dosingPlans', plan);
     return plan;
   }
@@ -165,14 +267,24 @@ export class LutealineRepository {
   async loadPatientData(): Promise<PatientData | null> {
     const profile = await this.getProfile();
     if (!profile) return null;
-    const [periodStarts, readings, questionnaires, medicationLogs, dosingPlan] = await Promise.all([
+    const [periodStarts, readings, questionnaires, medicationLogs, plans, cycleAdjustments] = await Promise.all([
       this.listPeriodStarts(),
       this.listReadings(),
       this.store.all<QuestionnaireEntry>('questionnaires'),
       this.store.all<MedicationLog>('medicationLogs'),
-      this.getActiveDosingPlan(),
+      this.listDosingPlans(),
+      this.listCycleAdjustments(),
     ]);
-    return { profile, periodStarts, readings, questionnaires, medicationLogs, dosingPlan };
+    return {
+      profile,
+      periodStarts,
+      readings,
+      questionnaires,
+      medicationLogs,
+      dosingPlan: plans.find((p) => p.status === 'active') ?? null,
+      pendingPlan: plans.find((p) => p.status === 'pending') ?? null,
+      cycleAdjustments,
+    };
   }
 
   async clearAll(): Promise<void> {

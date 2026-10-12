@@ -1,7 +1,8 @@
-import { getCycleDay, type CycleDayInfo, type CyclePhase } from './cycle';
+import { getCycleDay, type CycleContext, type CycleDayInfo, type CyclePhase } from './cycle';
 import { dateRange, type IsoDate } from './dates';
 import { getDoseForDate, type DoseForDay } from './dosing';
 import type {
+  CycleAdjustment,
   DosingPlan,
   HormoneReading,
   MedicationLog,
@@ -40,6 +41,19 @@ export interface PatientData {
   medicationLogs: MedicationLog[];
   /** The active plan, if any. */
   dosingPlan: DosingPlan | null;
+  /** A plan received from the physician that the patient has not confirmed yet. */
+  pendingPlan: DosingPlan | null;
+  cycleAdjustments: CycleAdjustment[];
+}
+
+/** The cycle settings of a patient, for cycle and dose lookups. */
+export function cycleContextFrom(data: Pick<PatientData, 'profile' | 'periodStarts' | 'cycleAdjustments'>): CycleContext {
+  return {
+    periodStarts: data.periodStarts,
+    typicalCycleLength: data.profile.typicalCycleLength,
+    typicalPeriodLength: data.profile.typicalPeriodLength,
+    adjustments: data.cycleAdjustments,
+  };
 }
 
 function latestBy<T extends { date: IsoDate; updatedAt: string }>(items: T[]): Map<IsoDate, T> {
@@ -52,7 +66,8 @@ function latestBy<T extends { date: IsoDate; updatedAt: string }>(items: T[]): M
 }
 
 export function buildDailyRecords(data: PatientData, from: IsoDate, to: IsoDate): DailyRecord[] {
-  const { profile, periodStarts, dosingPlan } = data;
+  const { dosingPlan } = data;
+  const ctx = cycleContextFrom(data);
 
   const readingsByDate = new Map<IsoDate, HormoneReading[]>();
   for (const r of data.readings) {
@@ -75,7 +90,7 @@ export function buildDailyRecords(data: PatientData, from: IsoDate, to: IsoDate)
 
     return {
       date,
-      cycle: getCycleDay(date, periodStarts, profile.typicalCycleLength),
+      cycle: getCycleDay(date, ctx),
       programPhase: inTreatment ? 'treatment' : 'monitoring',
       progesterone: latest
         ? {
@@ -95,7 +110,7 @@ export function buildDailyRecords(data: PatientData, from: IsoDate, to: IsoDate)
         ? { amount: meds.reduce((a, m) => a + m.amount, 0), unit: meds[0].unit }
         : null,
       prescribed: inTreatment
-        ? getDoseForDate(date, dosingPlan, periodStarts, profile.typicalCycleLength)
+        ? getDoseForDate(date, dosingPlan, ctx)
         : { status: 'noPlan' },
     };
   });
@@ -112,11 +127,12 @@ export const MONITORING_TARGET_CYCLES = 2;
  * Treatment = an active dosing plan is valid for this date.
  */
 export function getProgramStatus(data: PatientData, today: IsoDate): ProgramStatus {
-  const { dosingPlan, profile, periodStarts } = data;
+  const { dosingPlan, profile } = data;
   if (dosingPlan && today >= dosingPlan.validFrom) return { phase: 'treatment', plan: dosingPlan };
 
-  const now = getCycleDay(today, periodStarts, profile.typicalCycleLength);
-  const atStart = getCycleDay(profile.monitoringStartDate, periodStarts, profile.typicalCycleLength);
+  const ctx = cycleContextFrom(data);
+  const now = getCycleDay(today, ctx);
+  const atStart = getCycleDay(profile.monitoringStartDate, ctx);
   const firstCycle = atStart?.cycleNumber ?? 1;
   return {
     phase: 'monitoring',

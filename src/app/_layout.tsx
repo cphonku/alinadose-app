@@ -38,11 +38,15 @@ function RootStack() {
         <Stack.Screen name="index" />
         <Stack.Screen name="dosing" />
         <Stack.Screen name="plan-editor" />
+        <Stack.Screen name="plan-review" />
         <Stack.Screen name="log" />
         <Stack.Screen name="history" />
         <Stack.Screen name="news" />
         <Stack.Screen name="profile" />
       </Stack.Protected>
+      {/* Demo physician portal: not part of the patient's account. Listed last so
+          guarded routes fall back to the welcome screen, not here. */}
+      <Stack.Screen name="physician" />
     </Stack>
   );
 }

@@ -9,10 +9,14 @@ export interface CycleDayInfo {
   cycleDay: number;
   /** First day of this cycle. */
   cycleStart: IsoDate;
-  /** Length of this cycle: actual when the next period is logged, otherwise estimated. */
+  /** Length of this cycle: actual when the next period is logged, otherwise adjusted or estimated. */
   cycleLength: number;
-  /** True when `cycleLength` is an estimate (the next period has not been logged yet). */
+  /** True when `cycleLength` is not known yet (the next period has not been logged). */
   lengthIsEstimate: boolean;
+  /** Where `cycleLength` comes from. */
+  lengthSource: 'logged' | 'adjusted' | 'estimated';
+  /** Number of bleeding days in this cycle (patient-adjustable). */
+  periodLength: number;
   /** Estimated day of ovulation within this cycle. */
   ovulationDay: number;
   phase: CyclePhase;
@@ -23,8 +27,28 @@ export interface CycleDayInfo {
 /** The luteal phase is fairly constant (~14 days); the follicular phase varies. */
 export const LUTEAL_PHASE_DAYS = 14;
 export const DEFAULT_CYCLE_LENGTH = 28;
+export const DEFAULT_PERIOD_LENGTH = 5;
 const MIN_CYCLE_LENGTH = 15;
 const MAX_CYCLE_LENGTH = 60;
+
+/** Patient's own corrections for one cycle, e.g. "this cycle will be 32 days". */
+export interface CycleAdjustmentInput {
+  cycleStart: IsoDate;
+  /** Expected length of a cycle that is still running. Ignored once the next period is logged. */
+  expectedLength?: number;
+  /** Bleeding days in this cycle. */
+  periodLength?: number;
+}
+
+/** Everything needed to place a date in the patient's cycles. */
+export interface CycleContext {
+  periodStarts: readonly IsoDate[];
+  /** Patient-reported cycle length, used until enough cycles are logged. */
+  typicalCycleLength?: number;
+  /** Patient-reported bleeding length. */
+  typicalPeriodLength?: number;
+  adjustments?: readonly CycleAdjustmentInput[];
+}
 
 /** Sorted, de-duplicated period start dates. */
 export function normalizePeriodStarts(starts: readonly IsoDate[]): IsoDate[] {
@@ -70,14 +94,12 @@ export function phaseForDay(cycleDay: number, cycleLength: number): CyclePhase {
  * Where `date` falls in the patient's cycles. Returns null when the date is
  * before the first logged period (nothing to anchor to).
  *
- * @param typicalCycleLength patient-reported length, used until enough cycles are logged.
+ * Cycle length: the actual length once the next period is logged; for the
+ * running cycle, the patient's adjustment if set, otherwise the average of
+ * past cycles (falling back to the typical length).
  */
-export function getCycleDay(
-  date: IsoDate,
-  periodStarts: readonly IsoDate[],
-  typicalCycleLength: number = DEFAULT_CYCLE_LENGTH,
-): CycleDayInfo | null {
-  const starts = normalizePeriodStarts(periodStarts);
+export function getCycleDay(date: IsoDate, ctx: CycleContext): CycleDayInfo | null {
+  const starts = normalizePeriodStarts(ctx.periodStarts);
   let index = -1;
   for (let i = 0; i < starts.length && starts[i] <= date; i++) index = i;
   if (index < 0) return null;
@@ -85,10 +107,21 @@ export function getCycleDay(
   const cycleStart = starts[index];
   const cycleDay = daysBetween(cycleStart, date) + 1;
   const next = starts[index + 1];
-  const lengthIsEstimate = next === undefined;
-  const cycleLength = lengthIsEstimate
-    ? averageCycleLength(starts, typicalCycleLength)
-    : daysBetween(cycleStart, next);
+  const adjustment = ctx.adjustments?.find((a) => a.cycleStart === cycleStart);
+
+  let cycleLength: number;
+  let lengthSource: CycleDayInfo['lengthSource'];
+  if (next !== undefined) {
+    cycleLength = daysBetween(cycleStart, next);
+    lengthSource = 'logged';
+  } else if (adjustment?.expectedLength) {
+    cycleLength = adjustment.expectedLength;
+    lengthSource = 'adjusted';
+  } else {
+    cycleLength = averageCycleLength(starts, ctx.typicalCycleLength ?? DEFAULT_CYCLE_LENGTH);
+    lengthSource = 'estimated';
+  }
+  const lengthIsEstimate = lengthSource !== 'logged';
 
   return {
     cycleNumber: index + 1,
@@ -96,6 +129,8 @@ export function getCycleDay(
     cycleStart,
     cycleLength,
     lengthIsEstimate,
+    lengthSource,
+    periodLength: adjustment?.periodLength ?? ctx.typicalPeriodLength ?? DEFAULT_PERIOD_LENGTH,
     ovulationDay: estimateOvulationDay(cycleLength),
     phase: phaseForDay(Math.min(cycleDay, cycleLength), cycleLength),
     overdue: lengthIsEstimate && cycleDay > cycleLength,
@@ -103,11 +138,9 @@ export function getCycleDay(
 }
 
 /** Predicted start of the next period, based on the latest logged start. */
-export function predictNextPeriod(
-  periodStarts: readonly IsoDate[],
-  typicalCycleLength: number = DEFAULT_CYCLE_LENGTH,
-): IsoDate | null {
-  const starts = normalizePeriodStarts(periodStarts);
+export function predictNextPeriod(ctx: CycleContext): IsoDate | null {
+  const starts = normalizePeriodStarts(ctx.periodStarts);
   if (starts.length === 0) return null;
-  return addDays(starts[starts.length - 1], averageCycleLength(starts, typicalCycleLength));
+  const last = starts[starts.length - 1]!;
+  return addDays(last, getCycleDay(last, ctx)!.cycleLength);
 }

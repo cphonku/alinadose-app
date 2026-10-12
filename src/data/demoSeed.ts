@@ -44,6 +44,9 @@ export interface DemoData {
 
 const MONITORING_DOSE = 20;
 
+/** Fixed share code of the demo patient, so the physician portal demo can find it. */
+export const DEMO_SHARE_CODE = 'DEMO-01';
+
 /**
  * SYNTHETIC demo data: two monitoring cycles, then a physician's plan that
  * started at the beginning of the current cycle. Symptoms are generated to
@@ -81,6 +84,8 @@ export function generateDemoData(options: DemoOptions): DemoData {
     doseUnit: 'mg',
     preferredSampleType: sampleType,
     monitoringStartDate: monitoringStart,
+    typicalPeriodLength: 5,
+    shareCode: DEMO_SHARE_CODE,
   };
 
   // Plan: baseline dose, raised through the luteal phase.
@@ -95,10 +100,13 @@ export function generateDemoData(options: DemoOptions): DemoData {
     medicationName: profile.medicationName!,
     unit: 'mg',
     days: planDays,
+    periodLength: 5,
+    adaptation: 'phaseAnchored',
     doseBeyondPlan: MONITORING_DOSE,
     prescribedBy: 'Demo physician',
     validFrom: currentStart,
-    active: true,
+    status: 'active',
+    source: 'physician',
     isDemo: true,
   };
 
@@ -107,7 +115,7 @@ export function generateDemoData(options: DemoOptions): DemoData {
   const medicationLogs: MedicationLog[] = [];
 
   for (const date of dateRange(monitoringStart, addDays(today, -1))) {
-    const cycle = getCycleDay(date, starts, typicalCycleLength)!;
+    const cycle = getCycleDay(date, { periodStarts: starts, typicalCycleLength })!;
     const treatment = date >= dosingPlan.validFrom;
     const prescribed = planDays.find((d) => d.cycleDay === cycle.cycleDay)?.amount ?? MONITORING_DOSE;
     const missed = rng() < missedDayRate;

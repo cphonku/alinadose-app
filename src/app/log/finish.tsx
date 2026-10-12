@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { cycleContextFrom } from '../../domain/dailyRecords';
 import { getDoseForDate } from '../../domain/dosing';
 import { IncompleteQuestionnaireError, scoreQuestionnaire } from '../../domain/scoring';
 import { useApp, useServices } from '../../state/AppContext';
@@ -16,7 +17,7 @@ export default function Finish() {
   const { answers, reading } = useLogDraft();
   const unit = data?.profile.doseUnit ?? 'mg';
 
-  const dose = data ? getDoseForDate(today, data.dosingPlan, data.periodStarts, data.profile.typicalCycleLength) : null;
+  const dose = data ? getDoseForDate(today, data.dosingPlan, cycleContextFrom(data)) : null;
   const prescribed = dose && (dose.status === 'planned' || dose.status === 'beyondPlan') ? dose.amount : null;
   const loggedToday = data?.medicationLogs.find((m) => m.date === today)?.amount;
   const lastLogged = [...(data?.medicationLogs ?? [])].sort((a, b) => b.date.localeCompare(a.date))[0]?.amount;

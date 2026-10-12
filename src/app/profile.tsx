@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { newShareCode } from '../data/ids';
 import { addDays } from '../domain/dates';
 import { dailyRecordsToCsv } from '../domain/export';
 import { useApp, useServices } from '../state/AppContext';
@@ -27,9 +28,8 @@ export default function Profile() {
   if (!data) return null;
   const { profile } = data;
 
-  const updateProfile = async (changes: Partial<typeof profile>) => {
-    const { id, createdAt, updatedAt, schemaVersion, ...rest } = profile;
-    await repository.saveProfile({ ...rest, ...changes });
+  const updateProfile = async (changes: Parameters<typeof repository.updateProfile>[0]) => {
+    await repository.updateProfile(changes);
     await refresh();
   };
 
@@ -121,7 +121,21 @@ export default function Profile() {
         <Eyebrow>Your data</Eyebrow>
         <Caption>Everything is stored on this phone. Export it to share with your physician.</Caption>
         <Button title="Export as CSV" variant="secondary" icon="share-outline" onPress={exportCsv} />
-        <Button title="Physician's dosing plan" variant="secondary" icon="medkit-outline" onPress={() => router.push('/plan-editor')} />
+      </Card>
+
+      <Card style={styles.card}>
+        <Eyebrow>Your physician code</Eyebrow>
+        {profile.shareCode ? (
+          <Text style={styles.code} selectable accessibilityLabel={`Physician code ${profile.shareCode.split('').join(' ')}`}>
+            {profile.shareCode}
+          </Text>
+        ) : (
+          <Button title="Create a code" variant="secondary" onPress={() => repository.updateProfile({ shareCode: newShareCode() }).then(refresh)} />
+        )}
+        <Caption>
+          Give this code to your physician so they can send your dosing plan to this app. New plans always wait for your
+          confirmation.
+        </Caption>
       </Card>
 
       <Card style={styles.card}>
@@ -136,6 +150,7 @@ export default function Profile() {
             if (await confirm('Load demo data?', 'This replaces all data and the account on this device.', 'Load')) await startDemo();
           })}
         />
+        <Button title="Enter plan on this device" variant="secondary" icon="create-outline" onPress={() => router.push('/plan-editor')} />
         <Button
           title="Delete all data"
           variant="ghost"
@@ -159,5 +174,6 @@ const styles = StyleSheet.create({
   rowLabel: { fontFamily: fonts.body, fontSize: 15, color: colors.inkSoft },
   rowValue: { fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.ink },
   subLabel: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.inkMid, marginTop: spacing.sm },
+  code: { fontFamily: fonts.display, fontSize: 30, letterSpacing: 2, color: colors.petalDim },
   periodRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 4 },
 });

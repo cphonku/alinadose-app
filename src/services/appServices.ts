@@ -3,6 +3,7 @@ import { LutealineRepository } from '../data/LutealineRepository';
 import { SqliteDocumentStore, migrate } from '../data/SqliteDocumentStore';
 import { secureKeyValueStore } from './auth/SecureKeyValueStore';
 import { buildServices, type AppServices } from './buildServices';
+import { HttpRemotePlanService, planServerUrl } from './plans/HttpRemotePlanService';
 
 export type { AppServices } from './buildServices';
 
@@ -16,5 +17,5 @@ export async function createAppServices(): Promise<AppServices> {
   const db = await openDatabaseAsync(DATABASE_NAME);
   await migrate(db);
   const store = new SqliteDocumentStore(db);
-  return buildServices(store, new LutealineRepository(store), secureKeyValueStore);
+  return buildServices(store, new LutealineRepository(store), secureKeyValueStore, new HttpRemotePlanService(planServerUrl('native')));
 }

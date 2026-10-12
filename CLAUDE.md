@@ -77,17 +77,20 @@ logging flow must work fully without a dosing plan.
 - **Cycle tracking:** the patient logs period start dates; the app calculates the
   current cycle day and phase (follicular / ovulatory / luteal).
 - **Dosing plan:** the physician's personalized plan, with a dose for **each
-  specific day of the cycle**, made after the monitoring phase. For now the plan
-  is entered in the app (e.g. a settings screen, or demo seed data); later it
-  will come from the physician. When a plan exists, the home screen shows
-  today's prescribed dose. Before that, it shows monitoring progress
-  (e.g. "Cycle 1, day 12 of monitoring"). Decide and document how the plan
-  handles cycles longer or shorter than the plan.
+  specific day of the cycle**, made after the monitoring phase. The physician
+  edits it **remotely** (physician portal → plan server → patient app; the
+  patient confirms each new plan). The plan **adapts to the patient's actual
+  cycle and period length** (see Behaviour decisions). Before a plan exists the
+  app shows monitoring progress (e.g. "Cycle 1 of 2").
+- **Cycle adjustments:** on the dosing screen the patient can set this cycle's
+  expected length and the number of bleeding days; the plan follows.
 - **Integrated daily record + overview:** one record per day (hormones,
   symptom score, medication, cycle day), with a simple timeline or chart view.
 
 ### Out of scope for now (but design for it)
-- Sending data to the physician.
+- Sending patient data to the physician (the portal only edits plans).
+- The real backend: hosting, physician accounts, encryption, consent. **Waiting for
+  the team's GDPR measures** — don't pick a provider or add cloud storage before then.
 - Sharing data with researchers.
 - The real biosensor hardware integration.
 
@@ -98,7 +101,7 @@ timestamps and stable IDs, behind a repository layer. Make export easy to add
 ## Tech stack
 
 - **Expo SDK 57** (React Native 0.86, React 19), **TypeScript 6** (strict)
-- Navigation: Expo Router, with routes in `src/app/` (not built yet)
+- Navigation: Expo Router, with routes in `src/app/`
 - Storage: `expo-sqlite` behind `DocumentStore` / `LutealineRepository`;
   `expo-secure-store` for the demo account
 - Charts: hand-drawn with `react-native-svg` (no chart library) in `src/ui/charts/`
@@ -124,7 +127,15 @@ npm test            # Jest
 npm run typecheck   # tsc --noEmit
 npm run lint        # expo lint (ESLint not configured yet; first run sets it up)
 npx expo start --web  # browser preview (also: .claude/launch.json "lutealine-web")
+npm run relay       # demo plan server on :8787 (also: launch.json "plan-relay")
 ```
+
+**Remote plan demo:** run `npm run relay` and the web preview. Open `/physician`
+(or "Physician portal (demo)" on the welcome screen) in one tab, the patient demo
+in another (each browser tab has its own in-memory data, like two devices). The
+demo patient's code is `DEMO-01`. For a phone with Expo Go, set
+`EXPO_PUBLIC_PLAN_SERVER_URL=http://<laptop-ip>:8787` in `.env.local` (see
+`.env.example`); without it, native builds have remote plans switched off.
 
 The **web build is for previews only**: it uses in-memory storage (data and account
 are lost on reload; `*.web.ts` files swap the implementations) and shows the app in
@@ -141,12 +152,15 @@ src/
     welcome, auth, onboarding
     index.tsx          home: logo, profile avatar, 4 cards (sketch 1)
     dosing.tsx         cycle dial with the physician's plan (sketch 2)
-    plan-editor.tsx    physician enters the plan per cycle day
+    plan-review.tsx    patient reviews and confirms a plan sent by the physician
+    plan-editor.tsx    DEMO: enter a plan on the patient's device
+    physician.tsx      DEMO physician portal (web): open patient by code, publish plan
     log/               instructions → capture → questionnaire → finish (sketch 3)
     history.tsx        insight cards, timeline, cycle rings, phase bars
     news.tsx           PubMed articles
     profile.tsx        profile, period starts, export, demo tools
-  ui/                  theme.ts (palette/fonts), components.tsx, DosingDial, charts/
+  ui/                  theme.ts (palette/fonts), components.tsx, DosingDial, charts/,
+                       PlanEditorForm (shared by portal + device editor), PlanSyncStatus
   state/               AppContext (services, user, data, records), LogDraft
   content/
     questionnaire.ts   questionnaire items, mirrors docs/diva_questionnaire.md
@@ -164,7 +178,10 @@ src/
     biosensor/         BiosensorService, MockBiosensorService, calibration.ts (4PL curve)
     auth/              AuthService, DemoAuthService (single local account)
     news/pubmed.ts     PubMed E-utilities search (only the search term is sent)
+    plans/             RemotePlanService interface, HttpRemotePlanService (REST),
+                       MemoryRemotePlanService (tests), syncPlan (fetch → pending)
     photos.ts / .web.ts  saves test photos to app storage
+server/plan-relay.mjs  DEMO plan server: Node http, in-memory, no auth, no dependencies
 docs/                  questionnaire source, design notes
 assets/                logo.png (transparent), app icons generated from the team logo
 ```
@@ -183,10 +200,27 @@ green, ovulation = sand, luteal = petal. UI text is English.
   length − 14. The ovulatory window is ovulation day ±1. The current cycle's
   length is the average of past logged cycles (15–60 days), falling back to the
   profile's typical length.
-- **Dosing plan:** cycle day N maps to plan day N. In cycles longer than the
-  plan, the app shows the physician's `doseBeyondPlan`, or "contact your
-  physician" if none was given. Saving a new plan deactivates the old one
-  (kept for history).
+- **Cycle length & period length:** the running cycle uses the patient's
+  `CycleAdjustment.expectedLength` if set, else the average of past cycles, else
+  the typical length. Logged cycles always use their real length. Bleeding days:
+  adjustment → `profile.typicalPeriodLength` → 5.
+- **Plan adaptation** (`mapToPlanDay` in `domain/dosing.ts`), chosen by the
+  physician per plan:
+  - `phaseAnchored` (default): three segments. Bleeding days 1..M map onto plan
+    days 1..Mp; follicular days stretch/shrink onto the plan's follicular days;
+    the **last 14 days (luteal) map onto the plan's last 14 days**, counted back
+    from the expected next period. Days after the expected end (late period) use
+    `doseBeyondPlan`, or "contact your physician" if it is null.
+  - `fixedDays`: cycle day N = plan day N (v1 plans are normalized to this).
+  The app only *maps* days; every dose value is the physician's.
+- **Plan lifecycle:** `pending` (received from the physician) → patient taps
+  "I have read my new plan" → `active` from that day; the previous plan becomes
+  `archived`. A newer remote plan replaces an unconfirmed one. Remote plans are
+  de-duplicated by `publishedAt` (a restarted relay counts versions from 1 again).
+  The app checks for plans on start, when it returns to the foreground, and via
+  "Check for plan updates".
+- **Patient code:** `profile.shareCode` ("LUT-XXXXX", demo: `DEMO-01`) is the only
+  identifier sent to the plan server.
 - **One entry per day:** saving the questionnaire or the medication log again
   for the same date replaces the earlier entry. Several biosensor readings per
   day are allowed; daily records show the latest one.
@@ -216,8 +250,13 @@ green, ovulation = sand, luteal = petal. UI text is English.
 ## Health data & privacy
 
 The app handles sensitive health data (ADHD symptoms, medication, menstrual cycle).
-- Data stays on the device for now. Don't use analytics, crash reporters or
-  network calls with patient data.
+- Patient data stays on the device. Don't use analytics, crash reporters or
+  network calls with patient data. The only network traffic is PubMed searches
+  and plan sync (patient code + plan, no health data).
+- **GDPR measures are being drafted by the team.** Storage location, security
+  (encryption at rest/in transit, auth), and consent to data storage will be
+  decided with them. Until then: keep the relay demo-only and synthetic, and
+  don't add cloud services.
 - Use only synthetic data in the repo, tests, seed data and demo builds.
 - The app is a research and demonstration project, **not a medical device**.
   It shows the dose the physician prescribed. It must never calculate,

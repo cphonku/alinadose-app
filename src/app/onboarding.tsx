@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { newShareCode } from '../data/ids';
 import { addDays } from '../domain/dates';
 import type { SampleType } from '../domain/models';
 import { useApp, useServices } from '../state/AppContext';
@@ -14,6 +15,7 @@ export default function Onboarding() {
   const [name, setName] = useState(user?.displayName ?? '');
   const [birthYear, setBirthYear] = useState('');
   const [cycleLength, setCycleLength] = useState(28);
+  const [periodLength, setPeriodLength] = useState(5);
   const [daysSincePeriod, setDaysSincePeriod] = useState(0);
   const [medication, setMedication] = useState('');
   const [sampleType, setSampleType] = useState<SampleType>('saliva');
@@ -30,6 +32,8 @@ export default function Onboarding() {
         displayName: name.trim() || 'Patient',
         birthYear: Number.isFinite(year) ? year : undefined,
         typicalCycleLength: cycleLength,
+        typicalPeriodLength: periodLength,
+        shareCode: newShareCode(),
         medicationName: medication.trim() || undefined,
         doseUnit: 'mg',
         preferredSampleType: sampleType,
@@ -57,6 +61,11 @@ export default function Onboarding() {
       <Card style={styles.card}>
         <Eyebrow>Typical cycle length</Eyebrow>
         <Stepper label="Cycle length" value={cycleLength} onChange={setCycleLength} min={18} max={45} format={(v) => `${v} days`} />
+      </Card>
+
+      <Card style={styles.card}>
+        <Eyebrow>How long does your period usually last?</Eyebrow>
+        <Stepper label="Period length" value={periodLength} onChange={setPeriodLength} min={1} max={10} format={(v) => `${v} days`} />
       </Card>
 
       <Card style={styles.card}>

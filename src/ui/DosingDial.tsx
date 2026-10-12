@@ -3,7 +3,7 @@ import { useMemo, useRef } from 'react';
 import { PanResponder, Platform, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 import { phaseForDay } from '../domain/cycle';
-import type { DosingPlanDay } from '../domain/models';
+import type { ExpandedDay } from '../domain/dosing';
 import { formatDose } from './format';
 import { colors, fonts, phaseColors, phaseLabels } from './theme';
 
@@ -14,12 +14,12 @@ interface Props {
   selectedDay: number;
   onSelectDay: (day: number) => void;
   todayDay: number | null;
-  /** Physician's plan; null during monitoring. */
-  plan: DosingPlanDay[] | null;
+  /** Physician's doses laid out over this cycle (see expandPlanForCycle); null during monitoring. */
+  plan: ExpandedDay[] | null;
+  /** Bleeding days in this cycle. */
+  periodLength: number;
   unit: string;
 }
-
-const MENSTRUATION_DAYS = 5;
 
 function polar(cx: number, cy: number, r: number, angle: number) {
   return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
@@ -29,7 +29,7 @@ function polar(cx: number, cy: number, r: number, angle: number) {
  * Circular cycle dial. Each day is a radial bar (length = dose, colour =
  * phase); dragging anywhere on the dial moves the arrow to that day.
  */
-export function DosingDial({ size, days, selectedDay, onSelectDay, todayDay, plan, unit }: Props) {
+export function DosingDial({ size, days, selectedDay, onSelectDay, todayDay, plan, periodLength, unit }: Props) {
   const cx = size / 2;
   const cy = size / 2;
   const inner = size * 0.3;
@@ -38,7 +38,10 @@ export function DosingDial({ size, days, selectedDay, onSelectDay, todayDay, pla
   const step = (2 * Math.PI) / days;
   const angleOf = (day: number) => -Math.PI / 2 + (day - 0.5) * step;
 
-  const doseByDay = useMemo(() => new Map(plan?.map((d) => [d.cycleDay, d.amount]) ?? []), [plan]);
+  const doseByDay = useMemo(
+    () => new Map((plan ?? []).flatMap((d) => (d.amount === null ? [] : [[d.cycleDay, d.amount] as const]))),
+    [plan],
+  );
   const maxDose = Math.max(1, ...doseByDay.values());
 
   // Track the dial's position on screen so touches can be turned into angles.
@@ -123,7 +126,7 @@ export function DosingDial({ size, days, selectedDay, onSelectDay, todayDay, pla
             const len = plan ? maxBar * (0.2 + 0.8 * ((dose ?? 0) / maxDose)) : maxBar * 0.45;
             const p1 = polar(cx, cy, inner, a);
             const p2 = polar(cx, cy, inner + len, a);
-            const color = day <= MENSTRUATION_DAYS ? phaseColors.menstruation : phaseColors[phaseForDay(day, days)];
+            const color = day <= periodLength ? phaseColors.menstruation : phaseColors[phaseForDay(day, days)];
             const isSelected = day === selectedDay;
             return (
               <Line
@@ -158,8 +161,8 @@ export function DosingDial({ size, days, selectedDay, onSelectDay, todayDay, pla
         ) : (
           <Text style={[styles.dose, styles.noDose]}>{plan ? 'Ask your physician' : '—'}</Text>
         )}
-        <Text style={[styles.phase, { color: selectedDay <= MENSTRUATION_DAYS ? colors.coralDim : phase === 'luteal' ? colors.petalDim : colors.tealDim }]}>
-          {selectedDay <= MENSTRUATION_DAYS ? 'Period' : phaseLabels[phase]}
+        <Text style={[styles.phase, { color: selectedDay <= periodLength ? colors.coralDim : phase === 'luteal' ? colors.petalDim : colors.tealDim }]}>
+          {selectedDay <= periodLength ? 'Period' : phaseLabels[phase]}
         </Text>
       </View>
     </View>
