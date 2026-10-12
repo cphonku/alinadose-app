@@ -47,6 +47,8 @@ export interface HormoneReading extends RecordMeta {
   /** Where the value came from. 'mock' = synthetic, never real patient data. */
   source: 'mock' | 'camera';
   calibrationId: string;
+  /** Local file URI of the photo of the test, when one was taken. */
+  photoUri?: string;
 }
 
 export interface QuestionnaireEntry extends RecordMeta {

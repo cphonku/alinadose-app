@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local Claude Code preview config (machine-specific paths)
+.claude/launch.json

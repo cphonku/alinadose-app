@@ -74,9 +74,9 @@ export class LutealineRepository {
 
   // --- Biosensor readings ---------------------------------------------
 
-  async addReading(date: IsoDate, result: BiosensorResult): Promise<HormoneReading> {
+  async addReading(date: IsoDate, result: BiosensorResult, photoUri?: string): Promise<HormoneReading> {
     assertDate(date);
-    const reading: HormoneReading = { ...newMeta(this.clock()), date, ...result };
+    const reading: HormoneReading = { ...newMeta(this.clock()), date, ...result, photoUri };
     await this.store.put('hormoneReadings', reading);
     return reading;
   }

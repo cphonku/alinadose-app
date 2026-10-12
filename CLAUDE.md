@@ -101,7 +101,8 @@ timestamps and stable IDs, behind a repository layer. Make export easy to add
 - Navigation: Expo Router, with routes in `src/app/` (not built yet)
 - Storage: `expo-sqlite` behind `DocumentStore` / `LutealineRepository`;
   `expo-secure-store` for the demo account
-- Charts: not chosen yet (decide together with the UI design)
+- Charts: hand-drawn with `react-native-svg` (no chart library) in `src/ui/charts/`
+- Fonts: Playfair Display (headings) + DM Sans (body) via `@expo-google-fonts`; icons: Ionicons
 - Testing: Jest with the `jest-expo` preset
 - Demo: run with Expo Go or a development build on a phone at the Jamboree
 
@@ -122,37 +123,62 @@ npx expo start      # dev server (scan the QR code with Expo Go)
 npm test            # Jest
 npm run typecheck   # tsc --noEmit
 npm run lint        # expo lint (ESLint not configured yet; first run sets it up)
+npx expo start --web  # browser preview (also: .claude/launch.json "lutealine-web")
 ```
+
+The **web build is for previews only**: it uses in-memory storage (data and account
+are lost on reload; `*.web.ts` files swap the implementations) and shows the app in
+a 430 px phone-width column. Use "Explore the demo" on the welcome screen to load
+demo data. In the browser preview tool, mobile/touch emulation stops Pressables from
+receiving clicks, so test at desktop size.
 
 ## Project structure
 
 ```
 src/
-  app/                 Expo Router screens (to do, waiting on UI design)
-  components/          reusable UI (to do)
+  app/                 Expo Router screens (every file is a route; no other code here)
+    _layout.tsx        fonts, providers, auth/onboarding guards (Stack.Protected)
+    welcome, auth, onboarding
+    index.tsx          home: logo, profile avatar, 4 cards (sketch 1)
+    dosing.tsx         cycle dial with the physician's plan (sketch 2)
+    plan-editor.tsx    physician enters the plan per cycle day
+    log/               instructions → capture → questionnaire → finish (sketch 3)
+    history.tsx        insight cards, timeline, cycle rings, phase bars
+    news.tsx           PubMed articles
+    profile.tsx        profile, period starts, export, demo tools
+  ui/                  theme.ts (palette/fonts), components.tsx, DosingDial, charts/
+  state/               AppContext (services, user, data, records), LogDraft
   content/
     questionnaire.ts   questionnaire items, mirrors docs/diva_questionnaire.md
+    testInstructions.ts  PLACEHOLDER test steps until the biosensor is designed
   domain/              pure logic, no React/Expo imports, all unit tested
-    dates.ts           ISO-date helpers ("YYYY-MM-DD", local calendar dates)
-    cycle.ts           cycle day, phase and length estimation, next-period prediction
-    scoring.ts         questionnaire visibility, validation and scoring
-    dosing.ts          dose lookup from the physician's plan, plan validation
-    dailyRecords.ts    combined daily records, monitoring/treatment status, phase summary, correlation
-    export.ts          CSV export of daily records
-    models.ts          persisted record types
+    dates.ts, cycle.ts, scoring.ts, dosing.ts, dailyRecords.ts, export.ts, models.ts
   data/
-    DocumentStore.ts   storage interface + in-memory store (tests)
+    DocumentStore.ts   storage interface + in-memory store
     SqliteDocumentStore.ts  SQLite implementation + migrations (PRAGMA user_version)
     LutealineRepository.ts  the only API screens use for reading/writing data
     demoSeed.ts        synthetic demo data (2 monitoring cycles + active plan)
   services/
-    appServices.ts     creates the real services; swap implementations here
+    appServices.ts / .web.ts  create services (SQLite+SecureStore / in-memory)
+    buildServices.ts   wiring; swap mock biosensor / demo auth here
     biosensor/         BiosensorService, MockBiosensorService, calibration.ts (4PL curve)
     auth/              AuthService, DemoAuthService (single local account)
+    news/pubmed.ts     PubMed E-utilities search (only the search term is sent)
+    photos.ts / .web.ts  saves test photos to app storage
 docs/                  questionnaire source, design notes
+assets/                logo.png (transparent), app icons generated from the team logo
 ```
 
-### Behaviour decisions already made
+## Design
+
+Based on the team's sketches (Word doc: home with 4 cards, circular dosing dial,
+numbered test instructions) and the U Copenhagen iGEM 2026 wiki
+(https://2026.igem.wiki/u-copenhagen/). Use the tokens in `src/ui/theme.ts`, never
+raw colours. Series colours stay fixed across all charts: progesterone = teal,
+symptoms = coral, medication = petal pink. Phases: period = coral, follicular =
+green, ovulation = sand, luteal = petal. UI text is English.
+
+## Behaviour decisions already made
 - **Cycle:** the luteal phase is taken as 14 days, so ovulation = cycle
   length − 14. The ovulatory window is ovulation day ±1. The current cycle's
   length is the average of past logged cycles (15–60 days), falling back to the
@@ -167,6 +193,13 @@ docs/                  questionnaire source, design notes
 - **Calibration:** the values in `services/biosensor/calibration.ts` are
   PLACEHOLDERS until the wet lab has real calibration data. Saliva uses
   pg/mL; urine uses ng/mL (PdG).
+- **Plan start:** a saved plan is valid from the day it is entered; earlier days
+  stay "monitoring" in the records.
+- **History insights** (correlation, phase averages) use monitoring days only, once
+  there are at least 10, so the medication changes don't blur the hormone/symptom link.
+- **Camera:** the photo is saved with the reading, but the value still comes from the
+  mock biosensor. Replace the measure step in `log/capture.tsx` with image analysis
+  once the biosensor exists. "Use a simulated test" is the fallback without a camera.
 - **Demo data:** "today" is cycle day 20 of the first treatment cycle
   (mid-luteal, highest dose) and is left unlogged so it can be logged live.
 
