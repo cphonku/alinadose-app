@@ -118,6 +118,14 @@ describe('LutealineRepository', () => {
     expect(await repo.getPendingPlan()).toBeNull();
   });
 
+  it('rejects a remote plan above the label maximum without a reason', async () => {
+    const { repo } = setup();
+    const remote = { ...draft(40), labelMaxDailyDose: 30, patientCode: 'X', version: 1, publishedAt: '2026-10-12T08:00:00.000Z' };
+    await expect(repo.receiveRemotePlan(remote)).rejects.toThrow('label maximum');
+    const withReason = await repo.receiveRemotePlan({ ...remote, overLimitReason: 'Agreed with patient' });
+    expect(withReason).toMatchObject({ labelMaxDailyDose: 30, overLimitReason: 'Agreed with patient' });
+  });
+
   it('replaces an unconfirmed plan with a newer one', async () => {
     const { repo } = setup();
     await repo.receiveRemotePlan({ ...draft(35), patientCode: 'X', version: 1, publishedAt: '2026-10-12T08:00:00.000Z' });

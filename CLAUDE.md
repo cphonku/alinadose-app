@@ -164,6 +164,7 @@ src/
   state/               AppContext (services, user, data, records), LogDraft
   content/
     questionnaire.ts   questionnaire items, mirrors docs/diva_questionnaire.md
+    medications.ts     ADHD products: label rules per age group, from EU_ADHD_stimulant_dosing.xlsx (UNVERIFIED)
     testInstructions.ts  PLACEHOLDER test steps until the biosensor is designed
   domain/              pure logic, no React/Expo imports, all unit tested
     dates.ts, cycle.ts, scoring.ts, dosing.ts, dailyRecords.ts, export.ts, models.ts
@@ -213,6 +214,24 @@ green, ovulation = sand, luteal = petal. UI text is English.
     `doseBeyondPlan`, or "contact your physician" if it is null.
   - `fixedDays`: cycle day N = plan day N (v1 plans are normalized to this).
   The app only *maps* days; every dose value is the physician's.
+- **Dose limits** (`src/content/medications.ts`): one entry per product, with
+  strengths, dose step, start dose, titration step and label maximum **per age
+  group** (adult / 6–17). Stimulants come from the team's
+  `EU_ADHD_stimulant_dosing.xlsx` (keep the two in sync); atomoxetine and
+  guanfacine were added separately. Maximum kinds: mg, per-kg with a cap
+  (Medikinet: 1 mg/kg, never > 80 mg; weight is entered in the editor and NOT
+  stored or sent), not licensed for the age group, not checked, not stated.
+  All entries are **unverified** until the team checks them against the Danish
+  labels (`verified: true` then). The editor only *warns*: doses above the
+  maximum, or any dose of a product not licensed for the age group, need a
+  written `overLimitReason`, which is shown to the patient. Plans store a
+  snapshot (`ageGroup`, `labelMaxDailyDose`, `notLicensedForAgeGroup`).
+- **Titration:** the product's usual titration step is the default "change by
+  mg" amount; raising a day by more than it (vs the current plan) shows an
+  information note, without blocking.
+- **Dose adjustments** (`adjustDose` in `domain/dosing.ts`): the physician editor
+  can set days to a dose, change them by mg, or by % (5 % steps). Results are
+  rounded to the medication's dose step and never go below 0; they are not capped.
 - **Plan lifecycle:** `pending` (received from the physician) → patient taps
   "I have read my new plan" → `active` from that day; the previous plan becomes
   `archived`. A newer remote plan replaces an unconfirmed one. Remote plans are

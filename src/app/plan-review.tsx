@@ -7,6 +7,7 @@ import { comparePlans, expandPlanForCycle } from '../domain/dosing';
 import { useApp } from '../state/AppContext';
 import { Body, Button, Caption, Card, Disclaimer, Eyebrow, Header, Screen } from '../ui/components';
 import { DosingDial } from '../ui/DosingDial';
+import { LabelLimitNote } from '../ui/LabelLimitNote';
 import { formatDose } from '../ui/format';
 import { colors, fonts, spacing } from '../ui/theme';
 import { useAppWidth } from '../ui/useAppWidth';
@@ -85,6 +86,7 @@ export default function PlanReview() {
         </Caption>
       </Card>
 
+      <LabelLimitNote plan={plan} />
       <Button title="I have read my new plan" icon="checkmark" onPress={confirm} loading={saving} />
       <Caption style={{ textAlign: 'center', marginTop: spacing.sm }}>
         The new plan applies from today. Questions? Contact your physician before you change your medication.

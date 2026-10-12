@@ -46,6 +46,16 @@ function validate(d) {
   if (d.adaptation === 'phaseAnchored' && d.days.length < 16) return 'A phase-anchored plan needs at least 16 days';
   if (!Number.isInteger(d.periodLength) || d.periodLength < 1 || d.periodLength > 14) return 'Period length must be between 1 and 14 days';
   if (d.doseBeyondPlan !== null && !(typeof d.doseBeyondPlan === 'number' && d.doseBeyondPlan >= 0)) return 'Invalid dose beyond plan';
+  const hasReason = typeof d.overLimitReason === 'string' && d.overLimitReason.trim() !== '';
+  if (d.notLicensedForAgeGroup === true && !hasReason && d.days.some((day) => day.amount > 0)) {
+    return "This medication is not licensed for the patient's age group; give a reason to save.";
+  }
+  if (d.labelMaxDailyDose !== undefined) {
+    if (!(typeof d.labelMaxDailyDose === 'number' && d.labelMaxDailyDose > 0)) return 'Invalid label maximum';
+    const over = d.days.some((day) => day.amount > d.labelMaxDailyDose) || (d.doseBeyondPlan ?? 0) > d.labelMaxDailyDose;
+    const reason = typeof d.overLimitReason === 'string' ? d.overLimitReason.trim() : '';
+    if (over && !reason) return `Doses exceed the label maximum of ${d.labelMaxDailyDose} mg; give a reason to save.`;
+  }
   return null;
 }
 
@@ -89,6 +99,7 @@ const server = createServer(async (req, res) => {
     const error = validate(draft);
     if (error) return send(res, 400, { error });
     const { medicationName, unit, days, periodLength, adaptation, doseBeyondPlan, prescribedBy } = draft;
+    const text = (v) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
     const plan = {
       medicationName: medicationName.trim(),
       unit,
@@ -96,7 +107,12 @@ const server = createServer(async (req, res) => {
       periodLength,
       adaptation,
       doseBeyondPlan,
-      prescribedBy: typeof prescribedBy === 'string' && prescribedBy.trim() ? prescribedBy.trim() : undefined,
+      prescribedBy: text(prescribedBy),
+      medicationId: text(draft.medicationId),
+      ageGroup: draft.ageGroup === 'adult' || draft.ageGroup === 'youth' ? draft.ageGroup : undefined,
+      labelMaxDailyDose: typeof draft.labelMaxDailyDose === 'number' ? draft.labelMaxDailyDose : undefined,
+      notLicensedForAgeGroup: draft.notLicensedForAgeGroup === true ? true : undefined,
+      overLimitReason: text(draft.overLimitReason),
       patientCode: code,
       version: (plans.get(code)?.version ?? 0) + 1,
       publishedAt: new Date().toISOString(),
