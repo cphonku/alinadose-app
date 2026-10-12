@@ -42,7 +42,8 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "relay": "node server/plan-relay.mjs"
+    "relay": "node server/plan-relay.mjs",
+    "build:preview": "node scripts/build-preview.mjs"
   },
   "private": true,
   "jest": {

@@ -143,6 +143,29 @@ a 430 px phone-width column. Use "Explore the demo" on the welcome screen to loa
 demo data. In the browser preview tool, mobile/touch emulation stops Pressables from
 receiving clicks, so test at desktop size.
 
+## Shareable preview (for the team)
+
+A public, view-only preview of the app is published as a claude.ai Artifact:
+https://claude.ai/artifact/6aS2z58SnuqfYVYDPFJiFq (sharing is set in its Share menu).
+
+- Build: `npm run build:preview` → `dist-preview/` (Expo web export with
+  `EXPO_PUBLIC_PREVIEW=1`, `_expo/` renamed to `bundle/` because the Artifact
+  service reserves `_` names, root-absolute URLs made relative, and a page
+  `lutealine-preview.html` whose startup script sets `<base>` to its own folder
+  and resets the path to `/` for the router). `dist-preview/files.json` lists
+  the files to publish.
+- Update: rebuild, then republish `dist-preview/lutealine-preview.html` with the
+  `files` map to the **same Artifact URL** (font files need `contentType: font/ttf`).
+- Preview mode (`src/services/preview.ts` → `IS_PREVIEW`): nothing is saved;
+  physician portal and patient app share an in-memory plan server within one tab
+  (portal link in Profile → Demo); camera, PubMed news and CSV export are replaced
+  by short explanations because the hosted frame blocks them.
+- The hosted frame also blocks `alert`/`confirm`: always use `confirm()` from
+  `src/ui/confirm.tsx` (in-app dialog on web).
+- Local check before publishing: serve the project folder (launch.json
+  "preview-static") and open the build from a sub-path, wrapped in an
+  `<html><body>` skeleton, since the Artifact host adds one.
+
 ## Project structure
 
 ```

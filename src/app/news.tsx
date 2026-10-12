@@ -1,8 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { fetchArticles, type Article, type NewsTopic } from '../services/news/pubmed';
+import { IS_PREVIEW } from '../services/preview';
 import { Body, Button, Caption, Card, Eyebrow, Header, Screen, Segmented } from '../ui/components';
 import { colors, fonts, spacing } from '../ui/theme';
 
@@ -31,7 +32,8 @@ export default function News() {
   }, []);
 
   useEffect(() => {
-    load(topic);
+    // The hosted preview's frame blocks requests to other sites, so don't try.
+    if (!IS_PREVIEW) load(topic);
   }, [topic, load]);
 
   return (
@@ -46,7 +48,14 @@ export default function News() {
         onChange={setTopic}
       />
       <View style={styles.list}>
-        {error ? (
+        {IS_PREVIEW ? (
+          <Card>
+            <Body>
+              In the app, this screen lists the newest studies on ADHD and hormones from PubMed. The online preview can't
+              load them.
+            </Body>
+          </Card>
+        ) : error ? (
           <Card style={{ gap: spacing.md }}>
             <Body>Could not load articles. Check your internet connection.</Body>
             <Button title="Try again" variant="secondary" onPress={() => load(topic)} />

@@ -1,8 +1,9 @@
-import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
-import {
-  PlayfairDisplay_400Regular_Italic,
-  PlayfairDisplay_700Bold,
-} from '@expo-google-fonts/playfair-display';
+// Per-weight imports, so only these five font files are bundled.
+import { DMSans_400Regular } from '@expo-google-fonts/dm-sans/400Regular';
+import { DMSans_500Medium } from '@expo-google-fonts/dm-sans/500Medium';
+import { DMSans_700Bold } from '@expo-google-fonts/dm-sans/700Bold';
+import { PlayfairDisplay_400Regular_Italic } from '@expo-google-fonts/playfair-display/400Regular_Italic';
+import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display/700Bold';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,6 +11,7 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Image, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from '../state/AppContext';
+import { ConfirmHost } from '../ui/confirm';
 import { colors, MAX_APP_WIDTH } from '../ui/theme';
 
 function Splash() {
@@ -75,6 +77,7 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Frame>
         <AppProvider>{fontsLoaded ? <RootStack /> : <Splash />}</AppProvider>
+        {Platform.OS === 'web' && <ConfirmHost />}
       </Frame>
     </SafeAreaProvider>
   );

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { saveTestPhoto } from '../../services/photos';
+import { IS_PREVIEW } from '../../services/preview';
 import { useApp, useServices } from '../../state/AppContext';
 import { useLogDraft } from '../../state/LogDraft';
 import { Body, Button, Caption, Card, Eyebrow, Header, Screen } from '../../ui/components';
@@ -80,7 +81,15 @@ export default function Capture() {
   return (
     <Screen>
       <Header title="Photograph your test" subtitle="Place the test window inside the frame" />
-      {permission?.granted ? (
+      {IS_PREVIEW ? (
+        <Card style={styles.permissionCard}>
+          <Body>
+            The online preview can't use your camera. Use a simulated test to see how a reading works; on a phone, this
+            step photographs the test.
+          </Body>
+          <Button title="Use a simulated test" icon="flask-outline" onPress={() => measure()} />
+        </Card>
+      ) : permission?.granted ? (
         <View style={styles.cameraBox}>
           <CameraView ref={camera} style={StyleSheet.absoluteFill} facing="back" onCameraReady={() => setCameraReady(true)} />
           <View pointerEvents="none" style={styles.frame} />
@@ -92,10 +101,12 @@ export default function Capture() {
         </Card>
       )}
       {error && <Text style={styles.error}>{error}</Text>}
-      {permission?.granted && (
+      {!IS_PREVIEW && permission?.granted && (
         <Button title="Take photo" icon="aperture-outline" onPress={takePhoto} disabled={!cameraReady} style={{ marginTop: spacing.lg }} />
       )}
-      <Button title="No camera? Use a simulated test" variant="ghost" onPress={() => measure()} style={{ marginTop: spacing.xs }} />
+      {!IS_PREVIEW && (
+        <Button title="No camera? Use a simulated test" variant="ghost" onPress={() => measure()} style={{ marginTop: spacing.xs }} />
+      )}
     </Screen>
   );
 }

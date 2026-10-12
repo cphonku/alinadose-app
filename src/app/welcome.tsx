@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Image, Platform, StyleSheet, Text, View } from 'react-native';
+import { IS_PREVIEW } from '../services/preview';
 import { useApp } from '../state/AppContext';
 import { Body, Button, Caption, Eyebrow, Screen } from '../ui/components';
 import { colors, fonts, spacing } from '../ui/theme';
@@ -41,6 +42,9 @@ export default function Welcome() {
         />
         {Platform.OS === 'web' && (
           <Button title="Physician portal (demo)" variant="ghost" icon="medkit-outline" onPress={() => router.push('/physician')} />
+        )}
+        {IS_PREVIEW && (
+          <Caption style={styles.footer}>Preview version: nothing you enter is saved. Use made-up data.</Caption>
         )}
         <Caption style={styles.footer}>U Copenhagen iGEM 2026</Caption>
       </View>

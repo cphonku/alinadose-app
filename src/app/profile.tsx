@@ -1,8 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { newShareCode } from '../data/ids';
+import { IS_PREVIEW } from '../services/preview';
 import { addDays } from '../domain/dates';
 import { dailyRecordsToCsv } from '../domain/export';
 import { useApp, useServices } from '../state/AppContext';
@@ -46,7 +47,7 @@ export default function Profile() {
     }
   };
 
-  const exportCsv = () => Share.share({ title: 'Lutealine data', message: dailyRecordsToCsv(records) });
+  const exportCsv = () => Share.share({ title: 'Lutealine data', message: dailyRecordsToCsv(records) }).catch(() => {});
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -120,7 +121,7 @@ export default function Profile() {
       <Card style={styles.card}>
         <Eyebrow>Your data</Eyebrow>
         <Caption>Everything is stored on this phone. Export it to share with your physician.</Caption>
-        <Button title="Export as CSV" variant="secondary" icon="share-outline" onPress={exportCsv} />
+        {!IS_PREVIEW && <Button title="Export as CSV" variant="secondary" icon="share-outline" onPress={exportCsv} />}
       </Card>
 
       <Card style={styles.card}>
@@ -151,6 +152,9 @@ export default function Profile() {
           })}
         />
         <Button title="Enter plan on this device" variant="secondary" icon="create-outline" onPress={() => router.push('/plan-editor')} />
+        {Platform.OS === 'web' && (
+          <Button title="Open physician portal (demo)" variant="secondary" icon="medkit-outline" onPress={() => router.push('/physician')} />
+        )}
         <Button
           title="Delete all data"
           variant="ghost"

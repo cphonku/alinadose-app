@@ -42,3 +42,6 @@ yarn-error.*
 
 # local Claude Code preview config (machine-specific paths)
 .claude/launch.json
+
+# shareable preview build output
+dist-preview/
