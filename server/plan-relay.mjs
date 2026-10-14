@@ -1,4 +1,4 @@
-// Lutealine demo plan relay.
+// Alinadose demo plan relay.
 //
 // A tiny stand-in for the future backend so the physician portal can send a
 // dosing plan to the patient app during the demo. DEMO ONLY:
@@ -126,5 +126,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Lutealine demo plan relay on http://localhost:${PORT} (in-memory, demo data only)`);
+  console.log(`Alinadose demo plan relay on http://localhost:${PORT} (in-memory, demo data only)`);
 });

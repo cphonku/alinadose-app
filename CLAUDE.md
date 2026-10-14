@@ -4,8 +4,13 @@ Guidance for Claude Code when working in this repository.
 
 ## Project overview
 
-**Lutealine** is an iGEM project. This repository holds the patient-facing
-**mobile app** that goes with the Lutealine biosensor.
+This repository holds the patient-facing **mobile app, Alinadose**, part of the
+U Copenhagen iGEM 2026 project. It goes with the **Alinadose biosensor kit**.
+
+Naming: **Alinadose** = the app and the biosensor test kit; use it in all UI text
+and app config. **Lutealine** = the pill, a separate product of the overall
+project; don't use it for the app or the kit. Internal code names (e.g.
+`LutealineRepository`, storage keys, `lutealine.db`) are unchanged on purpose.
 
 ### Scientific background
 Women with ADHD often have symptoms that vary across the menstrual cycle.
@@ -286,7 +291,7 @@ The app handles sensitive health data (ADHD symptoms, medication, menstrual cycl
 - **Positioning:** the code is open source and the project is not going to be
   sold. At the Jamboree, though, it is presented *as a sellable product*.
   The app should look and feel like a polished consumer health product:
-  consistent branding ("Lutealine"), onboarding, clean visuals and a smooth
+  consistent branding ("Alinadose"), onboarding, clean visuals and a smooth
   demo flow. Prioritize demo polish over unseen infrastructure.
 - **Demo mode:** include a way to seed realistic synthetic data covering
   2 monitoring cycles plus an active dosing plan, so the history and charts look meaningful during the

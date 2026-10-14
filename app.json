@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Lutealine",
-    "slug": "lutealine",
+    "name": "Alinadose",
+    "slug": "alinadose",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -31,13 +31,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Lutealine uses the camera to read your hormone test.",
+          "cameraPermission": "Alinadose uses the camera to read your hormone test.",
           "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
         }
       ]
     ],
-    "scheme": "lutealine"
+    "scheme": "alinadose"
   }
 }

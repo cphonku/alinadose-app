@@ -12,9 +12,9 @@ export default function Welcome() {
   return (
     <Screen scroll={false} style={styles.container}>
       <View style={styles.hero}>
-        <Image source={require('../../assets/logo.png')} style={styles.logo} accessibilityLabel="Lutealine logo" />
+        <Image source={require('../../assets/logo.png')} style={styles.logo} accessibilityLabel="Alinadose logo" />
         <Eyebrow style={styles.eyebrow}>Hormone-aware ADHD care</Eyebrow>
-        <Text style={styles.brand}>Lutealine</Text>
+        <Text style={styles.brand}>Alinadose</Text>
         <Text style={styles.tagline}>Your cycle. Your symptoms. Your dose.</Text>
         <Body style={styles.body}>
           Measure progesterone at home, track your ADHD symptoms day by day, and give your physician the full picture

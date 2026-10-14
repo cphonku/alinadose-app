@@ -15,7 +15,7 @@ export interface PlanSyncState {
 }
 
 /** Test credentials for the Jamboree demo account (synthetic data only). */
-export const DEMO_ACCOUNT = { email: 'demo@lutealine.app', password: 'lutealine-demo', name: 'Demo Patient' };
+export const DEMO_ACCOUNT = { email: 'demo@alinadose.app', password: 'lutealine-demo', name: 'Demo Patient' };
 
 interface AppState {
   ready: boolean;

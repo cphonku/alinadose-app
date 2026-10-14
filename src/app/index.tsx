@@ -63,7 +63,7 @@ export default function Home() {
   return (
     <Screen>
       <View style={styles.topBar}>
-        <Image source={require('../../assets/logo.png')} style={styles.logo} accessibilityLabel="Lutealine" />
+        <Image source={require('../../assets/logo.png')} style={styles.logo} accessibilityLabel="Alinadose" />
         <Avatar name={data.profile.displayName} onPress={() => router.push('/profile')} />
       </View>
 
