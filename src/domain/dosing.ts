@@ -85,15 +85,36 @@ export interface DoseLimits {
  * Applies a physician's change to a dose: set to a value, change by mg, or
  * change by a percentage. The result is rounded to the medication's step and
  * never negative. It is NOT capped: `aboveLabelMax` tells the editor to warn.
+ *
+ * Percent changes round toward the change (up for an increase, down for a
+ * decrease), so a small percentage still moves the dose at least one step
+ * (20 mg + 10 % = 22 → 30 mg on a 10 mg step). Set and mg changes round to the
+ * nearest step. `exact` is the value before rounding.
  */
-export function adjustDose(current: number, change: DoseAdjustment, limits: DoseLimits): { amount: number; aboveLabelMax: boolean } {
-  const raw =
+export function adjustDose(
+  current: number,
+  change: DoseAdjustment,
+  limits: DoseLimits,
+): { amount: number; exact: number; aboveLabelMax: boolean } {
+  const exact =
     change.kind === 'set' ? change.mg : change.kind === 'absolute' ? current + change.mg : current * (1 + change.pct / 100);
   const step = limits.stepMg > 0 ? limits.stepMg : 1;
-  const amount = Math.max(0, Math.round(raw / step) * step);
+  // Tolerance so 22.000000001 / 10 isn't pushed up a whole step by float noise.
+  const steps = exact / step;
+  const rounded =
+    change.kind !== 'percent' || change.pct === 0
+      ? Math.round(steps)
+      : change.pct > 0
+        ? Math.ceil(steps - 1e-9)
+        : Math.floor(steps + 1e-9);
+  const amount = Math.max(0, rounded * step);
   // Avoid float noise like 35.00000001 for fractional steps.
   const clean = Math.round(amount * 1000) / 1000;
-  return { amount: clean, aboveLabelMax: limits.maxDailyDoseMg !== null && clean > limits.maxDailyDoseMg };
+  return {
+    amount: clean,
+    exact: Math.round(exact * 10) / 10,
+    aboveLabelMax: limits.maxDailyDoseMg !== null && clean > limits.maxDailyDoseMg,
+  };
 }
 
 /** Plan days whose dose is above the label maximum (plus the late-period dose as day 0). */

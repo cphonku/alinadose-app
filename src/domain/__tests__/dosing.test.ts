@@ -161,7 +161,7 @@ describe('dose adjustments', () => {
   const mph = { stepMg: 10, maxDailyDoseMg: 80 };
 
   it('changes a dose by mg', () => {
-    expect(adjustDose(30, { kind: 'absolute', mg: 10 }, mph)).toEqual({ amount: 40, aboveLabelMax: false });
+    expect(adjustDose(30, { kind: 'absolute', mg: 10 }, mph)).toEqual({ amount: 40, exact: 40, aboveLabelMax: false });
     expect(adjustDose(30, { kind: 'absolute', mg: -10 }, mph).amount).toBe(20);
   });
 
@@ -174,6 +174,16 @@ describe('dose adjustments', () => {
     expect(adjustDose(36, { kind: 'percent', pct: 50 }, { stepMg: 18, maxDailyDoseMg: 72 }).amount).toBe(54);
   });
 
+  it('rounds percent changes toward the change, so small percentages still move one step', () => {
+    expect(adjustDose(20, { kind: 'percent', pct: 10 }, mph)).toMatchObject({ amount: 30, exact: 22 });
+    expect(adjustDose(30, { kind: 'percent', pct: -10 }, mph)).toMatchObject({ amount: 20, exact: 27 });
+    expect(adjustDose(36, { kind: 'percent', pct: 10 }, { stepMg: 9, maxDailyDoseMg: 72 }).amount).toBe(45);
+    // Exact results stay put (no float noise pushing them a step).
+    expect(adjustDose(20, { kind: 'percent', pct: 50 }, mph).amount).toBe(30);
+    expect(adjustDose(0, { kind: 'percent', pct: 50 }, mph).amount).toBe(0);
+    expect(adjustDose(30, { kind: 'percent', pct: 0 }, mph).amount).toBe(30);
+  });
+
   it('sets a dose and rounds it to the step', () => {
     expect(adjustDose(0, { kind: 'set', mg: 43 }, { stepMg: 5, maxDailyDoseMg: null }).amount).toBe(45);
   });
@@ -184,7 +194,7 @@ describe('dose adjustments', () => {
   });
 
   it('flags but does not cap doses above the label maximum', () => {
-    expect(adjustDose(70, { kind: 'percent', pct: 30 }, mph)).toEqual({ amount: 90, aboveLabelMax: true });
+    expect(adjustDose(70, { kind: 'percent', pct: 30 }, mph)).toEqual({ amount: 100, exact: 91, aboveLabelMax: true });
     expect(adjustDose(70, { kind: 'absolute', mg: 50 }, { stepMg: 5, maxDailyDoseMg: null }).aboveLabelMax).toBe(false);
   });
 
