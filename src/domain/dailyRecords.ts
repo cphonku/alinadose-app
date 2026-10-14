@@ -10,7 +10,7 @@ import type {
   QuestionnaireEntry,
   SampleType,
 } from './models';
-import type { QuestionnaireScore } from './scoring';
+import { symptomSummary, type QuestionnaireScore, type SymptomSummary } from './scoring';
 
 /** Everything the app knows about one day, combined for the physician. */
 export interface DailyRecord {
@@ -25,7 +25,8 @@ export interface DailyRecord {
     /** Number of readings that day; `value` is the latest one. */
     readingCount: number;
   } | null;
-  symptoms: Pick<QuestionnaireScore, 'total' | 'totalPercent' | 'sections'> | null;
+  /** Symptom scores, 1–5 averages (see scoring.ts); null when not logged. */
+  symptoms: SymptomSummary | null;
   medicationEffect: number | null;
   sideEffects: QuestionnaireScore['sideEffects'] | null;
   medicationTaken: { amount: number; unit: string } | null;
@@ -102,7 +103,7 @@ export function buildDailyRecords(data: PatientData, from: IsoDate, to: IsoDate)
           }
         : null,
       symptoms: q
-        ? { total: q.score.total, totalPercent: q.score.totalPercent, sections: q.score.sections }
+        ? symptomSummary(q.score)
         : null,
       medicationEffect: q?.score.medicationEffect ?? null,
       sideEffects: q?.score.sideEffects ?? null,
@@ -157,7 +158,7 @@ export function summarizeByPhase(records: DailyRecord[]): PhaseSummary[] {
   return phases.map((phase) => {
     const inPhase = records.filter((r) => r.cycle?.phase === phase);
     const prog = inPhase.flatMap((r) => (r.progesterone ? [r.progesterone.value] : []));
-    const sym = inPhase.flatMap((r) => (r.symptoms ? [r.symptoms.totalPercent] : []));
+    const sym = inPhase.flatMap((r) => (r.symptoms ? [r.symptoms.overallPercent] : []));
     return {
       phase,
       days: inPhase.length,
@@ -184,7 +185,7 @@ export function progesteroneSymptomCorrelation(
   if (rows.length < 3) return null;
 
   const xs = rows.map((r) => r.progesterone!.value);
-  const ys = rows.map((r) => r.symptoms!.total);
+  const ys = rows.map((r) => r.symptoms!.overall);
   const mx = mean(xs)!;
   const my = mean(ys)!;
   let sxy = 0, sxx = 0, syy = 0;

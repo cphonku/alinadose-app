@@ -150,11 +150,11 @@ export function generateDemoData(options: DemoOptions): DemoData {
       }
     }
     const effect = treatment ? 4 - severity * 1.5 : 3.5 - prog * 2;
-    answers.e6 = clamp(Math.round(effect + 0.5 * gaussian(rng)), 1, 5) as ScaleValue;
+    answers.medEffect = clamp(Math.round(effect + 0.5 * gaussian(rng)), 1, 5) as ScaleValue;
     const sideEffects = rng() < (taken >= 40 ? 0.25 : 0.07);
-    answers.e7 = sideEffects;
+    answers.sideEffects = sideEffects;
     if (sideEffects) {
-      answers.e8 = { selected: [rng() < 0.6 ? 'sleep' : 'appetite'] };
+      answers.sideEffectList = { selected: [rng() < 0.6 ? 'sleep' : 'appetite'] };
     }
 
     questionnaires.push({

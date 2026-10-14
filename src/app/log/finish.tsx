@@ -71,8 +71,8 @@ export default function Finish() {
           )}
           <Card style={styles.stat}>
             <Eyebrow>Symptoms</Eyebrow>
-            <Text style={[styles.statValue, { color: series.symptoms }]}>{score.totalPercent}%</Text>
-            <Caption>of maximum</Caption>
+            <Text style={[styles.statValue, { color: series.symptoms }]}>{score.overall.toFixed(1)}</Text>
+            <Caption>of 5</Caption>
           </Card>
           <Card style={styles.stat}>
             <Eyebrow>Medication</Eyebrow>

@@ -41,7 +41,7 @@ export function CycleRings({ records, size, metric }: Props) {
   const valueOf = (r: DailyRecord): number | null =>
     metric === 'symptoms'
       ? r.symptoms
-        ? r.symptoms.totalPercent / 100
+        ? r.symptoms.overallPercent / 100
         : null
       : r.progesterone
         ? r.progesterone.value / maxProg
