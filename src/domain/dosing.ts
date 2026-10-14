@@ -25,7 +25,10 @@ export const MIN_PLAN_LENGTH = LUTEAL_PHASE_DAYS + 2;
 
 /** Throws when a plan is malformed (gaps, duplicates, negative doses, impossible lengths). */
 export function validateDosingPlan(
-  plan: Pick<DosingPlanDraft, 'days' | 'doseBeyondPlan' | 'periodLength' | 'adaptation'>,
+  plan: Pick<
+    DosingPlanDraft,
+    'days' | 'doseBeyondPlan' | 'periodLength' | 'adaptation' | 'labelMaxDailyDose' | 'notLicensedForAgeGroup' | 'overLimitReason'
+  >,
 ): void {
   if (plan.days.length === 0) throw new InvalidDosingPlanError('Plan has no days');
   const sorted = [...plan.days].sort((a, b) => a.cycleDay - b.cycleDay);
@@ -46,6 +49,90 @@ export function validateDosingPlan(
   if (!Number.isInteger(plan.periodLength) || plan.periodLength < 1 || plan.periodLength > 14) {
     throw new InvalidDosingPlanError('Period length must be between 1 and 14 days');
   }
+  const max = plan.labelMaxDailyDose;
+  if (max !== undefined && !(Number.isFinite(max) && max > 0)) {
+    throw new InvalidDosingPlanError('Invalid label maximum');
+  }
+  const hasReason = !!plan.overLimitReason?.trim();
+  if (plan.notLicensedForAgeGroup && !hasReason && plan.days.some((d) => d.amount > 0)) {
+    throw new InvalidDosingPlanError(
+      "This medication is not licensed for the patient's age group; give a reason to save.",
+    );
+  }
+  const over = max === undefined ? [] : daysAboveLabelMax(plan, max);
+  if (over.length > 0 && !hasReason) {
+    throw new InvalidDosingPlanError(
+      `${formatDayRanges(over)} exceed the label maximum of ${max} mg; give a reason to save.`,
+    );
+  }
+}
+
+// --- Dose limits and adjustments ----------------------------------------
+
+export type DoseAdjustment =
+  | { kind: 'set'; mg: number }
+  | { kind: 'absolute'; mg: number }
+  | { kind: 'percent'; pct: number };
+
+export interface DoseLimits {
+  /** Smallest dose step; results are rounded to a multiple of it. */
+  stepMg: number;
+  /** Label maximum per day; null when unknown. */
+  maxDailyDoseMg: number | null;
+}
+
+/**
+ * Applies a physician's change to a dose: set to a value, change by mg, or
+ * change by a percentage. The result is rounded to the medication's step and
+ * never negative. It is NOT capped: `aboveLabelMax` tells the editor to warn.
+ */
+export function adjustDose(current: number, change: DoseAdjustment, limits: DoseLimits): { amount: number; aboveLabelMax: boolean } {
+  const raw =
+    change.kind === 'set' ? change.mg : change.kind === 'absolute' ? current + change.mg : current * (1 + change.pct / 100);
+  const step = limits.stepMg > 0 ? limits.stepMg : 1;
+  const amount = Math.max(0, Math.round(raw / step) * step);
+  // Avoid float noise like 35.00000001 for fractional steps.
+  const clean = Math.round(amount * 1000) / 1000;
+  return { amount: clean, aboveLabelMax: limits.maxDailyDoseMg !== null && clean > limits.maxDailyDoseMg };
+}
+
+/** Plan days whose dose is above the label maximum (plus the late-period dose as day 0). */
+export function daysAboveLabelMax(plan: Pick<DosingPlanDraft, 'days' | 'doseBeyondPlan'>, maxMg: number): number[] {
+  const days = plan.days.filter((d) => d.amount > maxMg).map((d) => d.cycleDay);
+  return plan.doseBeyondPlan !== null && plan.doseBeyondPlan > maxMg ? [...days, 0] : days;
+}
+
+/**
+ * Plan days whose dose goes up by more than the label's usual titration step
+ * compared with the previous plan (same plan day). Information for the
+ * physician only; it does not block saving.
+ */
+export function titrationJumps(
+  previous: readonly { cycleDay: number; amount: number }[] | null,
+  days: readonly { cycleDay: number; amount: number }[],
+  maxStepMg: number,
+): number[] {
+  if (!previous) return [];
+  const before = new Map(previous.map((d) => [d.cycleDay, d.amount]));
+  return days
+    .filter((d) => before.has(d.cycleDay) && d.amount - before.get(d.cycleDay)! > maxStepMg)
+    .map((d) => d.cycleDay);
+}
+
+/** "Days 17–26 and the late-period dose" style label for a list of plan days (0 = late-period dose). */
+export function formatDayRanges(days: number[]): string {
+  const sorted = [...new Set(days)].filter((d) => d > 0).sort((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j]! + 1) j++;
+    parts.push(i === j ? `${sorted[i]}` : `${sorted[i]}–${sorted[j]}`);
+    i = j;
+  }
+  const late = days.includes(0) ? 'the late-period dose' : '';
+  if (parts.length === 0) return late ? 'The late-period dose' : '';
+  const label = `${sorted.length === 1 ? 'Day' : 'Days'} ${parts.join(', ')}`;
+  return late ? `${label} and ${late}` : label;
 }
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));

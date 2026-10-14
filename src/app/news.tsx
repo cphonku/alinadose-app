@@ -82,7 +82,7 @@ export default function News() {
         )}
       </View>
       <Caption style={{ textAlign: 'center', marginTop: spacing.lg }}>
-        Articles are from PubMed (U.S. National Library of Medicine). Lutealine does not review them.
+        Articles are from PubMed (U.S. National Library of Medicine). Alinadose does not review them.
       </Caption>
     </Screen>
   );

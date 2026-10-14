@@ -96,7 +96,7 @@ export default function Capture() {
         </View>
       ) : (
         <Card style={styles.permissionCard}>
-          <Body>Lutealine needs the camera to read your test. Photos stay on this phone.</Body>
+          <Body>Alinadose needs the camera to read your test. Photos stay on this phone.</Body>
           <Button title="Allow camera" variant="secondary" icon="camera-outline" onPress={requestPermission} />
         </Card>
       )}

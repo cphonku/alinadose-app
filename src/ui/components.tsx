@@ -261,7 +261,7 @@ export function Avatar({ name, size = 44, onPress }: { name: string; size?: numb
 export function Disclaimer() {
   return (
     <Caption style={styles.disclaimer}>
-      Lutealine shows the dosing plan your physician prescribed. It does not give medical advice. Never change your
+      Alinadose shows the dosing plan your physician prescribed. It does not give medical advice. Never change your
       medication without talking to your physician.
     </Caption>
   );

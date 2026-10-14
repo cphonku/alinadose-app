@@ -17,7 +17,7 @@ import { colors, MAX_APP_WIDTH } from '../ui/theme';
 function Splash() {
   return (
     <View style={splash.container}>
-      <Image source={require('../../assets/logo.png')} style={splash.logo} accessibilityLabel="Lutealine" />
+      <Image source={require('../../assets/logo.png')} style={splash.logo} accessibilityLabel="Alinadose" />
       <ActivityIndicator color={colors.coral} />
     </View>
   );

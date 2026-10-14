@@ -10,11 +10,11 @@ const COLUMNS = [
   'progesterone_unit',
   'sample_type',
   'reporter_signal',
-  'symptom_total',
+  'symptom_overall',
   'symptom_percent',
-  'attention',
-  'hyperactivity',
-  'emotional',
+  'attention_avg',
+  'hyperactivity_avg',
+  'emotional_avg',
   'medication_effect',
   'side_effects',
   'medication_taken',
@@ -31,7 +31,7 @@ function cell(value: string | number | null | undefined): string {
 /** One row per day; suitable for the physician or for research analysis. */
 export function dailyRecordsToCsv(records: DailyRecord[]): string {
   const rows = records.map((r) => {
-    const section = (id: string) => r.symptoms?.sections.find((s) => s.section === id)?.sum;
+    const section = (id: string) => r.symptoms?.sections.find((s) => s.section === id)?.average;
     const prescribed =
       r.prescribed.status === 'planned' || r.prescribed.status === 'beyondPlan' ? r.prescribed : null;
     const sideEffects = r.sideEffects?.present
@@ -49,8 +49,8 @@ export function dailyRecordsToCsv(records: DailyRecord[]): string {
       r.progesterone?.unit,
       r.progesterone?.sampleType,
       r.progesterone?.reporterSignal,
-      r.symptoms?.total,
-      r.symptoms?.totalPercent,
+      r.symptoms?.overall,
+      r.symptoms?.overallPercent,
       section('attention'),
       section('hyperactivity'),
       section('emotional'),

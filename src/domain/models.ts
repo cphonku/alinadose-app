@@ -109,6 +109,16 @@ export interface DosingPlan extends RecordMeta {
    */
   doseBeyondPlan: number | null;
   prescribedBy?: string;
+  /** Catalog id from src/content/medications.ts ('other' or absent for free text). */
+  medicationId?: string;
+  /** Age group whose label rules apply: adults, or 6–17 years. */
+  ageGroup?: 'adult' | 'youth';
+  /** Label maximum per day when the plan was written (snapshot), in `unit`. */
+  labelMaxDailyDose?: number;
+  /** The product's label does not cover this age group (snapshot): any dose is off-label. */
+  notLicensedForAgeGroup?: boolean;
+  /** The physician's reason for prescribing outside the label (above the maximum or off-label). */
+  overLimitReason?: string;
   validFrom: IsoDate;
   /**
    * pending: received from the physician, not yet confirmed by the patient.
@@ -130,5 +140,16 @@ export interface DosingPlan extends RecordMeta {
 /** The part of a plan a physician writes (no storage or lifecycle fields). */
 export type DosingPlanDraft = Pick<
   DosingPlan,
-  'medicationName' | 'unit' | 'days' | 'periodLength' | 'adaptation' | 'doseBeyondPlan' | 'prescribedBy'
+  | 'medicationName'
+  | 'unit'
+  | 'days'
+  | 'periodLength'
+  | 'adaptation'
+  | 'doseBeyondPlan'
+  | 'prescribedBy'
+  | 'medicationId'
+  | 'ageGroup'
+  | 'labelMaxDailyDose'
+  | 'notLicensedForAgeGroup'
+  | 'overLimitReason'
 >;

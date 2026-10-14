@@ -19,22 +19,20 @@ export type Answers = Record<string, Answer>;
 
 export interface SectionScore {
   section: SectionId;
-  /** Sum of the symptom items answered in this section. */
-  sum: number;
-  /** Lowest/highest possible sum for this section. */
-  min: number;
-  max: number;
+  /** Mean of this section's symptom answers, 1–5 (2 decimals). Higher = worse. */
+  average: number;
   itemCount: number;
 }
 
 export interface QuestionnaireScore {
   sections: SectionScore[];
-  /** Total symptom score (sum over all symptom items). Higher = worse. */
-  total: number;
-  totalMin: number;
-  totalMax: number;
-  /** Total rescaled to 0–100 for charts and comparisons. */
-  totalPercent: number;
+  /**
+   * Overall symptom score, 1–5: the mean of the section averages, so every
+   * section weighs the same however many questions it has. Higher = worse.
+   */
+  overall: number;
+  /** `overall` rescaled to 0–100 (1 → 0 %, 5 → 100 %) for charts. */
+  overallPercent: number;
   /** 1–5, where 5 = medication worked very well. Not part of the symptom score. */
   medicationEffect: ScaleValue | null;
   sideEffects: { present: boolean; selected: SideEffectId[]; otherText?: string };
@@ -95,16 +93,14 @@ export function scoreQuestionnaire(answers: Answers): QuestionnaireScore {
   const missing = missingAnswers(answers);
   if (missing.length > 0) throw new IncompleteQuestionnaireError(missing);
 
+  // Only symptom items count; the medication questions are stored separately.
   const symptomItems = QUESTIONNAIRE_ITEMS.filter((i) => i.role === 'symptom');
   const sections: SectionScore[] = SECTIONS.map(({ id }) => {
     const items = symptomItems.filter((i) => i.section === id);
     const sum = items.reduce((acc, i) => acc + (answers[i.id] as ScaleValue), 0);
-    return { section: id, sum, min: items.length, max: items.length * 5, itemCount: items.length };
+    return { section: id, average: round2(sum / items.length), itemCount: items.length };
   });
-
-  const total = sections.reduce((a, s) => a + s.sum, 0);
-  const totalMin = sections.reduce((a, s) => a + s.min, 0);
-  const totalMax = sections.reduce((a, s) => a + s.max, 0);
+  const overall = round2(mean(sections.map((s) => s.average)));
 
   const effectItem = QUESTIONNAIRE_ITEMS.find((i) => i.role === 'medicationEffect');
   const presentItem = QUESTIONNAIRE_ITEMS.find((i) => i.role === 'sideEffectsPresent');
@@ -123,11 +119,41 @@ export function scoreQuestionnaire(answers: Answers): QuestionnaireScore {
 
   return {
     sections,
-    total,
-    totalMin,
-    totalMax,
-    totalPercent: Math.round(((total - totalMin) / (totalMax - totalMin)) * 100),
+    overall,
+    overallPercent: toPercent(overall),
     medicationEffect: isScaleValue(effect) ? effect : null,
     sideEffects: { present, selected: list?.selected ?? [], otherText },
   };
+}
+
+const round2 = (v: number) => Math.round(v * 100) / 100;
+const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+const toPercent = (overall: number) => Math.round(((overall - 1) / 4) * 100);
+
+export interface SymptomSummary {
+  overall: number;
+  overallPercent: number;
+  sections: SectionScore[];
+}
+
+/** Score shape stored by questionnaire version 2 (sums over 23 questions). */
+interface LegacyScore {
+  sections: { section: SectionId; sum: number; itemCount: number }[];
+}
+
+/**
+ * The symptom part of a stored score, for any questionnaire version. Scores
+ * saved before version 3 held section sums; they are turned into averages here.
+ */
+export function symptomSummary(score: QuestionnaireScore | LegacyScore): SymptomSummary {
+  if ('overall' in score) {
+    return { overall: score.overall, overallPercent: score.overallPercent, sections: score.sections };
+  }
+  const sections = score.sections.map((s) => ({
+    section: s.section,
+    average: round2(s.sum / s.itemCount),
+    itemCount: s.itemCount,
+  }));
+  const overall = round2(mean(sections.map((s) => s.average)));
+  return { overall, overallPercent: toPercent(overall), sections };
 }

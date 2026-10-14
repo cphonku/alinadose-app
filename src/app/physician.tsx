@@ -48,7 +48,7 @@ export default function PhysicianPortal() {
 
   return (
     <Screen>
-      <Header title="Physician portal" subtitle="Demo · Lutealine for clinicians" />
+      <Header title="Physician portal" subtitle="Demo · Alinadose for clinicians" />
 
       <Card style={styles.card}>
         <Eyebrow>Patient</Eyebrow>

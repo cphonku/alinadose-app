@@ -1,9 +1,13 @@
 import {
+  adjustDose,
   comparePlans,
+  daysAboveLabelMax,
+  formatDayRanges,
   expandPlanForCycle,
   getDoseForDate,
   InvalidDosingPlanError,
   mapToPlanDay,
+  titrationJumps,
   validateDosingPlan,
 } from '../dosing';
 import type { DosingPlan } from '../models';
@@ -150,5 +154,73 @@ describe('plan validation', () => {
     expect(bad({ days: [] })).toThrow(InvalidDosingPlanError);
     expect(bad({ days: Array.from({ length: 10 }, (_, i) => ({ cycleDay: i + 1, amount: 1 })) })).toThrow('at least 16 days');
     expect(bad({ periodLength: 0 })).toThrow('Period length');
+  });
+});
+
+describe('dose adjustments', () => {
+  const mph = { stepMg: 10, maxDailyDoseMg: 80 };
+
+  it('changes a dose by mg', () => {
+    expect(adjustDose(30, { kind: 'absolute', mg: 10 }, mph)).toEqual({ amount: 40, aboveLabelMax: false });
+    expect(adjustDose(30, { kind: 'absolute', mg: -10 }, mph).amount).toBe(20);
+  });
+
+  it('changes a dose by percent, rounded to the dose step', () => {
+    // 30 mg + 20 % = 36 mg → 40 mg on a 10 mg step
+    expect(adjustDose(30, { kind: 'percent', pct: 20 }, mph).amount).toBe(40);
+    // 40 mg − 25 % = 30 mg
+    expect(adjustDose(40, { kind: 'percent', pct: -25 }, mph).amount).toBe(30);
+    // Concerta-style 18 mg step: 36 + 50 % = 54
+    expect(adjustDose(36, { kind: 'percent', pct: 50 }, { stepMg: 18, maxDailyDoseMg: 72 }).amount).toBe(54);
+  });
+
+  it('sets a dose and rounds it to the step', () => {
+    expect(adjustDose(0, { kind: 'set', mg: 43 }, { stepMg: 5, maxDailyDoseMg: null }).amount).toBe(45);
+  });
+
+  it('never goes below 0 mg', () => {
+    expect(adjustDose(10, { kind: 'absolute', mg: -30 }, mph).amount).toBe(0);
+    expect(adjustDose(10, { kind: 'percent', pct: -90 }, mph).amount).toBe(0);
+  });
+
+  it('flags but does not cap doses above the label maximum', () => {
+    expect(adjustDose(70, { kind: 'percent', pct: 30 }, mph)).toEqual({ amount: 90, aboveLabelMax: true });
+    expect(adjustDose(70, { kind: 'absolute', mg: 50 }, { stepMg: 5, maxDailyDoseMg: null }).aboveLabelMax).toBe(false);
+  });
+
+  it('lists the days above the maximum, including the late-period dose', () => {
+    const days = [10, 90, 90, 40, 100].map((amount, i) => ({ cycleDay: i + 1, amount }));
+    expect(daysAboveLabelMax({ days, doseBeyondPlan: null }, 80)).toEqual([2, 3, 5]);
+    expect(daysAboveLabelMax({ days, doseBeyondPlan: 85 }, 80)).toEqual([2, 3, 5, 0]);
+    expect(formatDayRanges([2, 3, 5, 0])).toBe('Days 2–3, 5 and the late-period dose');
+    expect(formatDayRanges([7])).toBe('Day 7');
+  });
+
+  it('needs a reason to save doses above the label maximum', () => {
+    const high = plan({
+      labelMaxDailyDose: 20,
+      days: Array.from({ length: 28 }, (_, i) => ({ cycleDay: i + 1, amount: i >= 16 ? 30 : 10 })),
+    });
+    expect(() => validateDosingPlan(high)).toThrow('Days 17–28 exceed the label maximum of 20 mg');
+    expect(() => validateDosingPlan({ ...high, overLimitReason: '   ' })).toThrow('give a reason');
+    expect(() => validateDosingPlan({ ...high, overLimitReason: 'Partial response, tolerated well' })).not.toThrow();
+  });
+});
+
+describe('label rules beyond the maximum', () => {
+  it('needs a reason for any dose of a product not licensed for the age group', () => {
+    const offLabel = plan({ notLicensedForAgeGroup: true });
+    expect(() => validateDosingPlan(offLabel)).toThrow('not licensed');
+    expect(() => validateDosingPlan({ ...offLabel, overLimitReason: 'Adult with good response as adolescent' })).not.toThrow();
+    const empty = plan({ notLicensedForAgeGroup: true, days: Array.from({ length: 28 }, (_, i) => ({ cycleDay: i + 1, amount: 0 })) });
+    expect(() => validateDosingPlan(empty)).not.toThrow();
+  });
+
+  it('finds days that go up by more than the titration step', () => {
+    const before = [10, 20, 30, 40].map((amount, i) => ({ cycleDay: i + 1, amount }));
+    const after = [10, 40, 50, 80].map((amount, i) => ({ cycleDay: i + 1, amount }));
+    expect(titrationJumps(before, after, 20)).toEqual([4]);
+    expect(titrationJumps(before, after, 10)).toEqual([2, 3, 4]);
+    expect(titrationJumps(null, after, 10)).toEqual([]);
   });
 });

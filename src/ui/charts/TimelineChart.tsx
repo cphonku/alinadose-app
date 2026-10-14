@@ -32,7 +32,7 @@ export function TimelineChart({ records, width, height = 230 }: Props) {
   const ySym = (pct: number) => PAD.top + plotH * (1 - pct / 100);
 
   const progPoints = records.map((r, i) => (r.progesterone ? { x: x(i), y: yProg(r.progesterone.value) } : null));
-  const symPoints = records.map((r, i) => (r.symptoms ? { x: x(i), y: ySym(r.symptoms.totalPercent) } : null));
+  const symPoints = records.map((r, i) => (r.symptoms ? { x: x(i), y: ySym(r.symptoms.overallPercent) } : null));
   const progLine = linePath(progPoints);
   const valid = progPoints.filter((p): p is { x: number; y: number } => p !== null);
   const progArea =
@@ -121,7 +121,7 @@ export function TimelineChart({ records, width, height = 230 }: Props) {
           </Text>
           <Text style={styles.tooltipText}>
             Progesterone: {sel.progesterone ? `${sel.progesterone.value.toFixed(0)} ${sel.progesterone.unit}` : '—'}   ·   Symptoms:{' '}
-            {sel.symptoms ? `${sel.symptoms.totalPercent}%` : '—'}   ·   Medication: {sel.medicationTaken ? `${sel.medicationTaken.amount} ${sel.medicationTaken.unit}` : '—'}
+            {sel.symptoms ? `${sel.symptoms.overallPercent}%` : '—'}   ·   Medication: {sel.medicationTaken ? `${sel.medicationTaken.amount} ${sel.medicationTaken.unit}` : '—'}
           </Text>
         </View>
       )}

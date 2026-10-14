@@ -52,7 +52,7 @@ const entryFile = indexHtml.match(/src="\/_expo\/(static\/js\/web\/entry-[^"]+\.
 if (!entryFile) throw new Error('Entry bundle not found in index.html');
 const entry = `${BUNDLE_DIR}/${entryFile}`;
 
-const page = `<title>Lutealine</title>
+const page = `<title>Alinadose</title>
 <style>
   /* The app draws its own light UI; the page only frames it. Single theme by choice. */
   :root {
@@ -66,7 +66,7 @@ const page = `<title>Lutealine</title>
   #root { display: flex; height: 100%; flex: 1; }
   .boot { margin: auto; font: 15px/1.4 system-ui, sans-serif; color: var(--ink); }
 </style>
-<div id="root"><p class="boot">Loading Lutealine…</p></div>
+<div id="root"><p class="boot">Loading Alinadose…</p></div>
 <script>
   (function () {
     // Files are published next to this page, maybe under a sub-path. Pin relative

@@ -9,6 +9,7 @@ import { expandPlanForCycle, getDoseForDate } from '../domain/dosing';
 import { useApp, useServices } from '../state/AppContext';
 import { Body, Button, Caption, Card, Disclaimer, Eyebrow, Header, ProgressBar, Screen, Stepper } from '../ui/components';
 import { DosingDial } from '../ui/DosingDial';
+import { LabelLimitNote } from '../ui/LabelLimitNote';
 import { formatDate, formatDose } from '../ui/format';
 import { PlanSyncStatus } from '../ui/PlanSyncStatus';
 import { colors, fonts, radius, spacing } from '../ui/theme';
@@ -166,6 +167,7 @@ export default function Dosing() {
         </Card>
       )}
 
+      {plan && <LabelLimitNote plan={plan} />}
       <PlanSyncStatus />
       <Disclaimer />
     </Screen>

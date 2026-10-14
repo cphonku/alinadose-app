@@ -1,10 +1,10 @@
 /**
  * Daily Functioning Questionnaire (based on DIVA).
- * Source of truth: docs/diva_questionnaire.md — keep this file in sync with it
+ * Source of truth: docs/diva_questionnaire_short.md — keep this file in sync with it
  * and ask the team before changing any wording.
  */
 
-export const QUESTIONNAIRE_VERSION = 2;
+export const QUESTIONNAIRE_VERSION = 3;
 
 export const SCALE_LABELS = {
   1: 'Not at all',
@@ -76,35 +76,25 @@ export type SideEffectId = (typeof SIDE_EFFECT_OPTIONS)[number]['id'];
 
 export const QUESTIONNAIRE_ITEMS: readonly QuestionnaireItem[] = [
   // Part 1 – Attention and organisation
-  symptom('o1', 'attention', 'I made mistakes because I rushed or did not read something properly: emails, forms, instructions, work tasks.', 'O1'),
-  symptom('o2', 'attention', 'I had to re-read, restart, or go back over something because I lost focus partway through.', 'O2'),
-  symptom('o3', 'attention', 'I lost track of what someone was saying while they were talking directly to me.', 'O3'),
-  symptom('o4', 'attention', 'I started tasks but moved on before finishing them.', 'O4'),
-  symptom('o5', 'attention', 'I struggled to plan or structure my time: I was late, double-booked, or did not know where to begin.', 'O5'),
-  symptom('o6', 'attention', 'I put off or avoided a task because it required sustained concentration.', 'O6'),
-  symptom('o7', 'attention', 'I spent time looking for something I had misplaced: keys, phone, wallet, papers.', 'O7'),
-  symptom('o8', 'attention', 'I was pulled away from what I was doing by noise, notifications, or things happening around me.', 'O8'),
-  symptom('o9', 'attention', 'I forgot something I was supposed to do, bring, or respond to.', 'O9'),
+  symptom('a1', 'attention', 'I made careless mistakes or had to go back over things because I lost focus partway through.', 'O1, O2'),
+  symptom('a2', 'attention', 'My attention drifted: in conversations, or when noise, notifications or things around me pulled me away.', 'O3, O8'),
+  symptom('a3', 'attention', "I avoided, put off, or didn't finish tasks that required sustained concentration.", 'O4, O6'),
+  symptom('a4', 'attention', 'I struggled to plan or structure my time: I was late, double-booked, or did not know where to begin.', 'O5'),
+  symptom('a5', 'attention', 'I forgot or misplaced things: tasks, appointments, messages, keys, phone.', 'O7, O9'),
 
   // Part 2 – Inner restlessness and impulsivity
-  symptom('hi1', 'hyperactivity', 'I felt physically restless: fidgeting, bouncing my leg, picking at my nails or hair.', 'H/I 1'),
-  symptom('hi2', 'hyperactivity', 'I found it hard to stay seated or still when I was expected to.', 'H/I 2'),
-  symptom('hi3', 'hyperactivity', 'I felt an inner restlessness, or found it hard to relax and do nothing.', 'H/I 3'),
-  symptom('hi4', 'hyperactivity', 'I found it difficult to settle into something quiet: reading, watching something, sitting still.', 'H/I 4'),
-  symptom('hi5', 'hyperactivity', 'My thoughts felt like they were running without stopping.', 'H/I 5'),
-  symptom('hi6', 'hyperactivity', 'I talked more than I intended, or found it hard to stop once I had started.', 'H/I 6'),
-  symptom('hi7', 'hyperactivity', 'I said something before thinking it through.', 'H/I 7'),
-  symptom('hi8', 'hyperactivity', 'I felt impatient when I had to wait: in a queue, in traffic, for my turn to speak.', 'H/I 8'),
-  symptom('hi9', 'hyperactivity', 'I interrupted someone or cut into a conversation or activity.', 'H/I 9'),
+  symptom('h1', 'hyperactivity', 'I felt physically restless: fidgeting, or finding it hard to stay seated or still.', 'H/I 1, H/I 2'),
+  symptom('h2', 'hyperactivity', 'I felt restless inside: hard to relax or settle into something quiet, or my thoughts kept racing.', 'H/I 3, H/I 4, H/I 5'),
+  symptom('h3', 'hyperactivity', 'I talked more than I meant to, or said things before thinking them through.', 'H/I 6, H/I 7'),
+  symptom('h4', 'hyperactivity', 'I was impatient when waiting, or interrupted others.', 'H/I 8, H/I 9'),
 
   // Part 3 – Emotional regulation and daily functioning
-  symptom('e1', 'emotional', 'My mood shifted quickly or felt harder to control than usual.'),
-  symptom('e2', 'emotional', 'I felt sensitive to criticism or rejection, or spent time wondering whether I had upset someone.'),
-  symptom('e3', 'emotional', 'I worked hard to appear more organised or more focused than I actually felt.'),
-  symptom('e4', 'emotional', 'Ordinary tasks took more effort than they usually do.'),
-  symptom('e5', 'emotional', 'I felt overwhelmed by things that would not normally overwhelm me.'),
+  symptom('e1', 'emotional', 'My mood shifted quickly, or I felt unusually sensitive to criticism or rejection.'),
+  symptom('e2', 'emotional', 'Ordinary tasks, including keeping up appearances, took more effort than usual or felt overwhelming.'),
+
+  // Medication questions: stored separately, never part of the symptom score.
   {
-    id: 'e6',
+    id: 'medEffect',
     section: 'emotional',
     kind: 'scale',
     role: 'medicationEffect',
@@ -112,19 +102,19 @@ export const QUESTIONNAIRE_ITEMS: readonly QuestionnaireItem[] = [
     text: 'My medication felt effective.',
   },
   {
-    id: 'e7',
+    id: 'sideEffects',
     section: 'emotional',
     kind: 'yesNo',
     role: 'sideEffectsPresent',
     text: 'I experienced adverse side effects (e.g. trouble sleeping, heart racing, headaches, loss of appetite, nausea, anxiety).',
   },
   {
-    id: 'e8',
+    id: 'sideEffectList',
     section: 'emotional',
     kind: 'multiChoice',
     role: 'sideEffectsList',
     text: 'I experienced the following side effects.',
     options: SIDE_EFFECT_OPTIONS,
-    showIf: { itemId: 'e7', equals: true },
+    showIf: { itemId: 'sideEffects', equals: true },
   },
 ];

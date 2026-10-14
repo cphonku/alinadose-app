@@ -7,7 +7,7 @@ import type { SampleType } from '../domain/models';
 export const TEST_INSTRUCTIONS: Record<SampleType, readonly { title: string; detail: string }[]> = {
   saliva: [
     { title: 'Collect your sample', detail: 'Do not eat or drink for 30 minutes. Fill the collection tube with saliva up to the line.' },
-    { title: 'Add it to the test', detail: 'Drip the saliva into the sample well of the Lutealine test.' },
+    { title: 'Add it to the test', detail: 'Drip the saliva into the sample well of the Alinadose test.' },
     { title: 'Wait 10 minutes', detail: 'Leave the test on a flat surface while the reaction develops.' },
     { title: 'Take a photo', detail: 'Press Next and photograph the test window in good light.' },
   ],

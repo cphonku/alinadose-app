@@ -4,8 +4,13 @@ Guidance for Claude Code when working in this repository.
 
 ## Project overview
 
-**Lutealine** is an iGEM project. This repository holds the patient-facing
-**mobile app** that goes with the Lutealine biosensor.
+This repository holds the patient-facing **mobile app, Alinadose**, part of the
+U Copenhagen iGEM 2026 project. It goes with the **Alinadose biosensor kit**.
+
+Naming: **Alinadose** = the app and the biosensor test kit; use it in all UI text
+and app config. **Lutealine** = the pill, a separate product of the overall
+project; don't use it for the app or the kit. Internal code names (e.g.
+`LutealineRepository`, storage keys, `lutealine.db`) are unchanged on purpose.
 
 ### Scientific background
 Women with ADHD often have symptoms that vary across the menstrual cycle.
@@ -53,24 +58,27 @@ logging flow must work fully without a dosing plan.
   (saliva/urine). The real camera-based readout comes later. Keep the
   interface stable so it can be swapped in, and keep the calibration
   parameters in one config file.
-- **ADHD symptom questionnaire:** the "Daily Functioning Questionnaire"
-  (`docs/diva_questionnaire.md`), based on DIVA. The markdown file is the source
-  of truth; re-read it whenever you work on the questionnaire. Current structure:
-  - Part 1 – Attention and organisation (O1–O9), 9 items, scale 1–5
-  - Part 2 – Inner restlessness and impulsivity (H/I 1–9), 9 items, scale 1–5
-  - Part 3 – Emotional regulation and daily functioning:
-    - items 1–5: symptom items, scale 1–5
-    - item 6: "My medication felt effective", scale 1–5, reverse direction
-    - item 7: adverse side effects, yes/no
-    - item 8: shown only if item 7 = yes. Multiple choice: trouble sleeping,
-      heart racing, headaches, loss of appetite, nausea, anxiety, other
-      (with a free-text field for "other")
-  Scoring:
+- **ADHD symptom questionnaire:** the short DIVA-inspired questionnaire
+  (`docs/diva_questionnaire_short.md`, 14 questions). The markdown file is the
+  source of truth; re-read it whenever you work on the questionnaire. The older
+  long version is kept in `docs/diva_questionnaire_long.md` for reference.
+  Current structure (scale 1–5):
+  - Part 1 – Attention and organisation: 5 questions (`a1`–`a5`, merged DIVA O1–O9)
+  - Part 2 – Inner restlessness and impulsivity: 4 questions (`h1`–`h4`, merged H/I 1–9)
+  - Part 3 – Emotional regulation and daily functioning: 2 questions (`e1`–`e2`)
+  - Medication questions (not symptoms): `medEffect` "My medication felt
+    effective" (scale, reverse direction); `sideEffects` (yes/no);
+    `sideEffectList` (multiple choice, only after "yes": trouble sleeping,
+    heart racing, headaches, loss of appetite, nausea, anxiety, other + free text)
+  Scoring (`scoreQuestionnaire` in `domain/scoring.ts`, questionnaire version 3):
   - Store every raw answer.
-  - Calculate subscores for Part 1, Part 2 and Part 3 items 1–5, plus a total
-    symptom score (higher = worse).
-  - Store medication effectiveness (item 6) and side effects (items 7–8) as
-    separate fields, not part of the symptom score.
+  - Each part gets an **average** (1–5). The **overall symptom score is the
+    average of the three part averages**, so each part weighs the same.
+    Higher = worse. `overallPercent` rescales it to 0–100 for charts.
+  - The medication questions are never part of the symptom score; they are
+    stored as separate fields.
+  - Scores saved by version 2 (sums over 23 questions) are converted to averages
+    by `symptomSummary`.
   Keep the questions in a data file (`src/content/`), not hard-coded in the UI.
   Ask before changing the wording.
 - **Medication log:** the dose taken today, as part of the daily questionnaire.
@@ -186,7 +194,8 @@ src/
                        PlanEditorForm (shared by portal + device editor), PlanSyncStatus
   state/               AppContext (services, user, data, records), LogDraft
   content/
-    questionnaire.ts   questionnaire items, mirrors docs/diva_questionnaire.md
+    questionnaire.ts   questionnaire items, mirrors docs/diva_questionnaire_short.md
+    medications.ts     ADHD products: label rules per age group, from EU_ADHD_stimulant_dosing.xlsx (UNVERIFIED)
     testInstructions.ts  PLACEHOLDER test steps until the biosensor is designed
   domain/              pure logic, no React/Expo imports, all unit tested
     dates.ts, cycle.ts, scoring.ts, dosing.ts, dailyRecords.ts, export.ts, models.ts
@@ -236,6 +245,24 @@ green, ovulation = sand, luteal = petal. UI text is English.
     `doseBeyondPlan`, or "contact your physician" if it is null.
   - `fixedDays`: cycle day N = plan day N (v1 plans are normalized to this).
   The app only *maps* days; every dose value is the physician's.
+- **Dose limits** (`src/content/medications.ts`): one entry per product, with
+  strengths, dose step, start dose, titration step and label maximum **per age
+  group** (adult / 6–17). Stimulants come from the team's
+  `EU_ADHD_stimulant_dosing.xlsx` (keep the two in sync); atomoxetine and
+  guanfacine were added separately. Maximum kinds: mg, per-kg with a cap
+  (Medikinet: 1 mg/kg, never > 80 mg; weight is entered in the editor and NOT
+  stored or sent), not licensed for the age group, not checked, not stated.
+  All entries are **unverified** until the team checks them against the Danish
+  labels (`verified: true` then). The editor only *warns*: doses above the
+  maximum, or any dose of a product not licensed for the age group, need a
+  written `overLimitReason`, which is shown to the patient. Plans store a
+  snapshot (`ageGroup`, `labelMaxDailyDose`, `notLicensedForAgeGroup`).
+- **Titration:** the product's usual titration step is the default "change by
+  mg" amount; raising a day by more than it (vs the current plan) shows an
+  information note, without blocking.
+- **Dose adjustments** (`adjustDose` in `domain/dosing.ts`): the physician editor
+  can set days to a dose, change them by mg, or by % (5 % steps). Results are
+  rounded to the medication's dose step and never go below 0; they are not capped.
 - **Plan lifecycle:** `pending` (received from the physician) → patient taps
   "I have read my new plan" → `active` from that day; the previous plan becomes
   `archived`. A newer remote plan replaces an unconfirmed one. Remote plans are
@@ -290,7 +317,7 @@ The app handles sensitive health data (ADHD symptoms, medication, menstrual cycl
 - **Positioning:** the code is open source and the project is not going to be
   sold. At the Jamboree, though, it is presented *as a sellable product*.
   The app should look and feel like a polished consumer health product:
-  consistent branding ("Lutealine"), onboarding, clean visuals and a smooth
+  consistent branding ("Alinadose"), onboarding, clean visuals and a smooth
   demo flow. Prioritize demo polish over unseen infrastructure.
 - **Demo mode:** include a way to seed realistic synthetic data covering
   2 monitoring cycles plus an active dosing plan, so the history and charts look meaningful during the

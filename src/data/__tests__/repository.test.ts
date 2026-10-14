@@ -14,7 +14,7 @@ import { MemoryDocumentStore } from '../DocumentStore';
 import { LutealineRepository, normalizePlan } from '../LutealineRepository';
 
 const answers = (value: 1 | 2 | 3 | 4 | 5, extra: Answers = {}): Answers => {
-  const a: Answers = { e6: 3, e7: false, ...extra };
+  const a: Answers = { medEffect: 3, sideEffects: false, ...extra };
   QUESTIONNAIRE_ITEMS.filter((i) => i.role === 'symptom').forEach((i) => (a[i.id] = value));
   return a;
 };
@@ -72,12 +72,12 @@ describe('LutealineRepository', () => {
     const first = await repo.saveQuestionnaire('2026-10-12', answers(2));
     const second = await repo.saveQuestionnaire('2026-10-12', answers(4));
     expect(second.id).toBe(first.id);
-    expect((await repo.getQuestionnaire('2026-10-12'))!.score.total).toBe(92);
+    expect((await repo.getQuestionnaire('2026-10-12'))!.score.overall).toBe(4);
   });
 
   it('refuses to save an incomplete questionnaire', async () => {
     const { repo } = setup();
-    await expect(repo.saveQuestionnaire('2026-10-12', { o1: 3 })).rejects.toThrow('Missing answers');
+    await expect(repo.saveQuestionnaire('2026-10-12', { a1: 3 })).rejects.toThrow('Missing answers');
   });
 
   const draft = (lutealDose = 30) => ({
@@ -118,6 +118,14 @@ describe('LutealineRepository', () => {
     expect(await repo.getPendingPlan()).toBeNull();
   });
 
+  it('rejects a remote plan above the label maximum without a reason', async () => {
+    const { repo } = setup();
+    const remote = { ...draft(40), labelMaxDailyDose: 30, patientCode: 'X', version: 1, publishedAt: '2026-10-12T08:00:00.000Z' };
+    await expect(repo.receiveRemotePlan(remote)).rejects.toThrow('label maximum');
+    const withReason = await repo.receiveRemotePlan({ ...remote, overLimitReason: 'Agreed with patient' });
+    expect(withReason).toMatchObject({ labelMaxDailyDose: 30, overLimitReason: 'Agreed with patient' });
+  });
+
   it('replaces an unconfirmed plan with a newer one', async () => {
     const { repo } = setup();
     await repo.receiveRemotePlan({ ...draft(35), patientCode: 'X', version: 1, publishedAt: '2026-10-12T08:00:00.000Z' });
@@ -155,7 +163,7 @@ describe('LutealineRepository', () => {
     await repo.saveProfile(profileInput);
     await repo.logPeriodStart('2026-10-01');
     await repo.addReading('2026-10-12', reading);
-    await repo.saveQuestionnaire('2026-10-12', answers(3, { e7: true, e8: { selected: ['sleep'] } }));
+    await repo.saveQuestionnaire('2026-10-12', answers(3, { sideEffects: true, sideEffectList: { selected: ['sleep'] } }));
     await repo.logMedication('2026-10-12', 20, 'mg');
 
     const data = (await repo.loadPatientData())!;
@@ -166,7 +174,7 @@ describe('LutealineRepository', () => {
       programPhase: 'monitoring',
       cycle: { cycleDay: 12, phase: 'follicular' },
       progesterone: { value: 120, readingCount: 1 },
-      symptoms: { total: 69 },
+      symptoms: { overall: 3, overallPercent: 50 },
       medicationTaken: { amount: 20, unit: 'mg' },
       sideEffects: { present: true, selected: ['sleep'] },
       prescribed: { status: 'noPlan' },

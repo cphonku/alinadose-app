@@ -1,6 +1,6 @@
 import type { CyclePhase } from '../domain/cycle';
 
-/** Palette taken from the U Copenhagen iGEM 2026 wiki and the Lutealine logo. */
+/** Palette taken from the U Copenhagen iGEM 2026 wiki and the team logo. */
 export const colors = {
   background: '#FFF8EF',
   surface: '#FFFFFF',

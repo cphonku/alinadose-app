@@ -47,7 +47,7 @@ export default function Profile() {
     }
   };
 
-  const exportCsv = () => Share.share({ title: 'Lutealine data', message: dailyRecordsToCsv(records) }).catch(() => {});
+  const exportCsv = () => Share.share({ title: 'Alinadose data', message: dailyRecordsToCsv(records) }).catch(() => {});
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
