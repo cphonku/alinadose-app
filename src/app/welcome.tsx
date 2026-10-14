@@ -10,7 +10,7 @@ export default function Welcome() {
   const [loading, setLoading] = useState(false);
 
   return (
-    <Screen scroll={false} style={styles.container}>
+    <Screen style={styles.container}>
       <View style={styles.hero}>
         <Image source={require('../../assets/logo.png')} style={styles.logo} accessibilityLabel="Alinadose logo" />
         <Eyebrow style={styles.eyebrow}>Hormone-aware ADHD care</Eyebrow>
@@ -49,7 +49,8 @@ export default function Welcome() {
 }
 
 const styles = StyleSheet.create({
-  container: { justifyContent: 'space-between', paddingBottom: spacing.lg },
+  // Scrolls on small phones; on tall screens the buttons sit below the intro.
+  container: { flexGrow: 1, justifyContent: 'space-between', gap: spacing.xl, paddingBottom: spacing.lg },
   hero: { alignItems: 'center', marginTop: spacing.xl },
   logo: { width: 150, height: 150, marginBottom: spacing.md },
   eyebrow: { color: colors.coralDim, marginBottom: spacing.xs },
