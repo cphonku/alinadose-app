@@ -261,8 +261,13 @@ green, ovulation = sand, luteal = petal. UI text is English.
   mg" amount; raising a day by more than it (vs the current plan) shows an
   information note, without blocking.
 - **Dose adjustments** (`adjustDose` in `domain/dosing.ts`): the physician editor
-  can set days to a dose, change them by mg, or by % (5 % steps). Results are
-  rounded to the medication's dose step and never go below 0; they are not capped.
+  can set days to a dose, change them by mg, or by % (5 % steps), for a range of
+  days or per day (the per-day + / − buttons step by one dose step or by a %).
+  Results are rounded to the medication's dose step, never go below 0, and are
+  not capped. "Set to" and mg changes round to the nearest step; **% changes
+  round toward the change** (up for increases, down for decreases), so a small
+  % always moves the dose at least one step (20 mg + 10 % = 22 → 30 mg on a
+  10 mg step). The editor shows the exact value and the resulting change.
 - **Plan lifecycle:** `pending` (received from the physician) → patient taps
   "I have read my new plan" → `active` from that day; the previous plan becomes
   `archived`. A newer remote plan replaces an unconfirmed one. Remote plans are

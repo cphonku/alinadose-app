@@ -66,6 +66,9 @@ export function PlanEditorForm({ initial, defaultMedication = '', defaultLength 
   const [setMg, setSetMg] = useState(20);
   const [deltaMg, setDeltaMg] = useState(startMed.titration[initial?.ageGroup ?? 'adult'].maxStepMg ?? startMed.stepMg);
   const [pct, setPct] = useState(10);
+  // Per-day + / − buttons: one dose step, or a percentage of that day's dose.
+  const [dayMode, setDayMode] = useState<'step' | 'percent'>('step');
+  const [dayPct, setDayPct] = useState(10);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -104,16 +107,29 @@ export function PlanEditorForm({ initial, defaultMedication = '', defaultLength 
   const applyRange = () => setDoses((d) => d.map((v, i) => (inRange(i) ? adjustDose(v, change, limits).amount : v)));
 
   // Live preview of the range change: one line per distinct "before → after".
-  const previewGroups = new Map<string, { before: number; raw: number; after: number; days: number; above: boolean }>();
+  const previewGroups = new Map<string, { before: number; exact: number; after: number; days: number; above: boolean }>();
   doses.forEach((v, i) => {
     if (!inRange(i)) return;
-    const raw = mode === 'set' ? setMg : mode === 'absolute' ? v + deltaMg : v * (1 + pct / 100);
-    const { amount, aboveLabelMax } = adjustDose(v, change, limits);
+    const { amount, exact, aboveLabelMax } = adjustDose(v, change, limits);
     const key = `${v}->${amount}`;
     const g = previewGroups.get(key);
     if (g) g.days += 1;
-    else previewGroups.set(key, { before: v, raw: Math.round(raw * 10) / 10, after: amount, days: 1, above: aboveLabelMax });
+    else previewGroups.set(key, { before: v, exact, after: amount, days: 1, above: aboveLabelMax });
   });
+  const zeroDaysInRange = doses.some((v, i) => inRange(i) && v === 0);
+  const pctChange = (before: number, after: number) =>
+    before > 0 && after !== before ? `, ${after > before ? '+' : ''}${Math.round(((after - before) / before) * 100)} %` : '';
+
+  const stepDay = (i: number, dose: number, direction: 1 | -1) =>
+    setDose(
+      i,
+      adjustDose(
+        dose,
+        dayMode === 'percent' ? { kind: 'percent', pct: direction * dayPct } : { kind: 'absolute', mg: direction * med.stepMg },
+        limits,
+      ).amount,
+    );
+  const dayStepLabel = dayMode === 'percent' ? `${dayPct} %` : `${med.stepMg} mg`;
 
   const submit = async () => {
     setError(null);
@@ -310,17 +326,37 @@ export function PlanEditorForm({ initial, defaultMedication = '', defaultLength 
         <View style={styles.preview} accessibilityLiveRegion="polite">
           {[...previewGroups.values()].slice(0, 4).map((g) => (
             <Text key={`${g.before}-${g.after}`} style={[styles.previewText, g.above && styles.previewAbove]}>
-              {g.days} {g.days === 1 ? 'day' : 'days'}: {g.before} → {mode === 'percent' && g.raw !== g.after ? `${g.raw} → ` : ''}
-              {g.after} mg{g.above ? '  (above label max)' : ''}
+              {g.days} {g.days === 1 ? 'day' : 'days'}: {g.before} → {g.exact !== g.after ? `${g.exact} (exact) → ` : ''}
+              {g.after} mg{pctChange(g.before, g.after)}{g.above ? '  (above label max)' : ''}
             </Text>
           ))}
-          {mode === 'percent' && <Caption>Rounded to the {med.stepMg} mg dose step.</Caption>}
+          {mode === 'percent' && (
+            <Caption>
+              Rounded {pct >= 0 ? 'up' : 'down'} to the {med.stepMg} mg dose step, so the dose always changes.
+              {zeroDaysInRange ? " Days at 0 mg are not changed by a percentage; use 'Set to' first." : ''}
+            </Caption>
+          )}
         </View>
         <Button title={`Apply to days ${range.from}–${range.to}`} variant="secondary" onPress={applyRange} />
       </Card>
 
       <Card style={styles.card}>
         <Eyebrow>Dose per plan day</Eyebrow>
+        <Caption>Buttons change each day by</Caption>
+        <Segmented
+          options={[
+            { value: 'step', label: `One step (${med.stepMg} mg)` },
+            { value: 'percent', label: 'Percent' },
+          ]}
+          value={dayMode}
+          onChange={setDayMode}
+        />
+        {dayMode === 'percent' && (
+          <View style={styles.rangeRow}>
+            <Caption style={styles.rangeLabel}>Percent</Caption>
+            <Stepper label="Per-day percent" value={dayPct} onChange={setDayPct} step={5} min={5} max={100} format={(v) => `${v} %`} />
+          </View>
+        )}
         {doses.map((dose, i) => {
           const day = i + 1;
           const color = day <= periodLength ? phaseColors.menstruation : phaseColors[phaseForDay(day, doses.length)];
@@ -337,11 +373,11 @@ export function PlanEditorForm({ initial, defaultMedication = '', defaultLength 
                   </View>
                 )}
               </View>
-              <Pressable accessibilityLabel={`Decrease day ${day}`} onPress={() => setDose(i, adjustDose(dose, { kind: 'absolute', mg: -med.stepMg }, limits).amount)} hitSlop={6} style={styles.smallBtn}>
+              <Pressable accessibilityLabel={`Decrease day ${day} by ${dayStepLabel}`} onPress={() => stepDay(i, dose, -1)} hitSlop={6} style={styles.smallBtn}>
                 <Ionicons name="remove" size={18} color={colors.coralDim} />
               </Pressable>
               <Text style={[styles.doseText, above && { color: colors.danger }]}>{dose} mg</Text>
-              <Pressable accessibilityLabel={`Increase day ${day}`} onPress={() => setDose(i, adjustDose(dose, { kind: 'absolute', mg: med.stepMg }, limits).amount)} hitSlop={6} style={styles.smallBtn}>
+              <Pressable accessibilityLabel={`Increase day ${day} by ${dayStepLabel}`} onPress={() => stepDay(i, dose, 1)} hitSlop={6} style={styles.smallBtn}>
                 <Ionicons name="add" size={18} color={colors.coralDim} />
               </Pressable>
             </View>
