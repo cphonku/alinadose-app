@@ -53,6 +53,12 @@ npm install
 npx expo start
 ```
 
+`npm install` downloads all libraries into `node_modules/`, using the exact
+versions pinned in `package-lock.json`. That folder is not in the repository
+(it is large and specific to each computer); run `npm install` again whenever
+`package.json` changes, e.g. after a `git pull`. Build output (`dist-preview/`,
+from `npm run build:preview`) is not in the repository either.
+
 Scan the QR code with Expo Go (phone and computer on the same Wi-Fi), or press
 `w` to open the app in the browser. On the welcome screen, choose
 **Explore the demo**.
