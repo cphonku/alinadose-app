@@ -2,6 +2,17 @@
 
 Guidance for Claude Code when working in this repository.
 
+Read [README.md](README.md) for what the tool does and how to run it, and
+**[.claude/RESPONSIBLE_AI_USE.md](.claude/RESPONSIBLE_AI_USE.md)** (iGEM's rules for
+AI assistants: the team stays accountable, never fabricate data or citations, credit
+sources, never commit secrets).
+
+The code lives in two repositories, kept in sync: GitHub (`origin`,
+github.com/cphonku/alinadose-app) and iGEM GitLab (`igem`,
+gitlab.igem.org/2026/software/u-copenhagen/alinadose-app). iGEM judges the `main`
+branch of the GitLab repository; a release is created automatically at the Wiki
+Freeze. Push `main` and `preview` to both. License: Apache 2.0.
+
 ## Project overview
 
 This repository holds the patient-facing **mobile app, Alinadose**, part of the
@@ -304,7 +315,7 @@ The app handles sensitive health data (ADHD symptoms, medication, menstrual cycl
 - **Demo mode:** include a way to seed realistic synthetic data covering
   2 monitoring cycles plus an active dosing plan, so the history and charts look meaningful during the
   presentation.
-- The software must be open source (OSI license, e.g. MIT) and documented
+- The software must be open source (Apache 2.0, OSI-approved) and documented
   well enough for future teams to reuse it.
 - Keep the README current: purpose, setup, and the feature list for judging.
 - **Deadline: about one week (target 2026-10-19).** Scope accordingly. A
