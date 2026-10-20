@@ -1,0 +1,23 @@
+# Checks every push on iGEM GitLab: install, type check, unit tests.
+# (Replaces GitLab's generic Auto DevOps pipeline, which does not fit an Expo app.)
+
+image: node:22
+
+stages:
+  - test
+
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - .npm/
+
+test:
+  stage: test
+  script:
+    - npm ci --cache .npm --prefer-offline
+    - npm run typecheck
+    - npx jest --ci
+  rules:
+    - if: $CI_COMMIT_BRANCH
